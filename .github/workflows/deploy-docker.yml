@@ -6,22 +6,19 @@ on:
       sha:
         required: true
         type: string
-      UPDATE_WEBHOOK:
-        required: true
-        type: string
-      HEALTHCHECK_URI:
-        required: true
-        type: string
     secrets:
       RESPONSA_REGISTRY_USERNAME:
-        retuired: true
+        required: true
       RESPONSA_REGISTRY_PASSWORD:
-        retuired: true
+        required: true
+      UPDATE_WEBHOOK:
+        required: true
+      HEALTHCHECK_URI:
+        required: true
       
 
 jobs:
   deploy:
-    needs: build
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
