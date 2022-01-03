@@ -11,14 +11,13 @@ on:
         type: string
     secrets:
       SONAR_TOKEN:
-        retuired: true
+        required: true
       SONAR_HOST_URL:
-        retuired: true
+        required: true
       
 
 jobs:
   code-analisys:
-    needs: build
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
