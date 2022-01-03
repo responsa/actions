@@ -1,0 +1,51 @@
+name: code-analisys
+
+on:
+  workflow_call:
+    inputs:
+      workspace:
+        required: true
+        type: string
+      repositoryName:
+        required: true
+        type: string
+    secrets:
+      SONAR_TOKEN:
+        retuired: true
+      SONAR_HOST_URL:
+        retuired: true
+      
+
+jobs:
+  code-analisys:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: jest-results
+          path: ${{ inputs.workspace }}
+      - run: ls -la ${{ inputs.workspace }}
+      - name: sonarqube 
+        uses: sonarsource/sonarqube-scan-action@master
+        with:
+          projectBaseDir: /github/workspace
+          args: >
+            -Dsonar.projectKey=${{ inputs.repositoryName }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/coverage/*,**/coverage/**/*
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*
+            -Dsonar.cpd.exclusions=**/test/*,**/test/**/*
+            -Dsonar.test.inclusions=**/*test*
+            -Dsonar.testExecutionReportPaths=test-report-sonar.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
