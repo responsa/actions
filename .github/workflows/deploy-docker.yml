@@ -15,8 +15,9 @@ on:
         required: true
       HEALTHCHECK_URI:
         required: true
-      
-
+env:
+  UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
+  HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
 jobs:
   docker:
     runs-on: self-hosted
@@ -47,7 +48,7 @@ jobs:
         run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} 
       - run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
       - name: Deploy Webhook
-        if: ${{ always() && secrets.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' }}
+        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ inputs.UPDATE_WEBHOOK }}
