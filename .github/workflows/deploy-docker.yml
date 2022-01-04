@@ -42,7 +42,7 @@ jobs:
           timeZone: 1
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - name: Docker build
-        run: docker build --network=container:secrets-server --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} .
+        run: docker build --network=container:github-runners_secrets-server --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} .
       - name: Docker tag
         run: docker image tag registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
       - name: Docker push
