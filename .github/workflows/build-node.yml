@@ -6,8 +6,13 @@ on:
       node_version:
         type: string
         default: '16'
-
-
+    secrets:
+      NPM_HOST:
+        required: true
+      NPM_SCOPE:
+        required: true
+      NPM_TOKEN:
+        required: true
 jobs:
   node:
     runs-on: self-hosted
@@ -16,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ inputs.node_version }}
+      - run: echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" /
+             ${{ secrets.NPM_SCOPE}}:registry=https://${{ secrets.NPM_HOST }} > ~/.npmrc
       - run: npm install
       - run: npm run lint
       - run: npm run jest:ci
