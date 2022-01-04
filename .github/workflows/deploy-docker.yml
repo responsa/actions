@@ -42,9 +42,12 @@ jobs:
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - run: docker build --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} .
       - run: docker image tag registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
-      - run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} && docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
+      - name: push docker image
+        id: docker-push
+        run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} 
+      - run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
       - name: Deploy Webhook
-        if: ${{ success() && env.UPDATE_WEBHOOK }}
+        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ inputs.UPDATE_WEBHOOK }}
