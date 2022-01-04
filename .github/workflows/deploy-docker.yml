@@ -55,10 +55,10 @@ jobs:
           url: ${{ env.UPDATE_WEBHOOK }}
       - name: Healthcheck request
         id: healthcheck
-        if: ${{ success() && inputs.HEALTHCHECK_URI }}
+        if: ${{ success() && env.HEALTHCHECK_URI }}
         uses: fjogeleit/http-request-action@master
         with:
-          url: "${{ inputs.HEALTHCHECK_URI }}"
+          url: "${{ env.HEALTHCHECK_URI }}"
           method: 'GET'
       - name: Fail if sha is not present
         if: inputs.HEALTHCHECK_URI && contains(steps.healthcheck.outputs.response, inputs.sha) == false
