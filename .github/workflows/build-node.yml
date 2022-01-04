@@ -21,8 +21,8 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ inputs.node_version }}
-      - run: echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" /
-             ${{ secrets.NPM_SCOPE}}:registry=https://${{ secrets.NPM_HOST }} > ~/.npmrc
+      - run: echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      - run: echo ${{ secrets.NPM_SCOPE }}:registry=https://${{ secrets.NPM_HOST }} >> ~/.npmrc
       - run: npm install
       - run: npm run lint
       - run: npm run jest:ci
