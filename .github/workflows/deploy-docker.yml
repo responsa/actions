@@ -51,7 +51,7 @@ jobs:
         if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
-          url: ${{ inputs.UPDATE_WEBHOOK }}
+          url: ${{ env.UPDATE_WEBHOOK }}
       - name: Healthcheck request
         id: healthcheck
         if: ${{ success() && inputs.HEALTHCHECK_URI }}
