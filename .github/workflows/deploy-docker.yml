@@ -6,6 +6,12 @@ on:
       sha:
         required: true
         type: string
+      name:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
     secrets:
       RESPONSA_REGISTRY_USERNAME:
         required: true
@@ -23,9 +29,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
-      - name: Get package info
-        id: package
-        uses: codex-team/action-nodejs-package-info@v1
+      
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
@@ -42,12 +46,12 @@ jobs:
           timeZone: 1
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - name: Docker build
-        run: docker build --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} .
+        run: docker build --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} .
       - name: Docker tag
-        run: docker image tag registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
+        run: docker image tag registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.name }}:latest
       - name: Docker push
         id: docker-push
-        run: docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:${{ steps.package.outputs.version }} && docker image push registry.goresponsa.com/${{ steps.package.outputs.name }}:latest
+        run: docker image push registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} && docker image push registry.goresponsa.com/${{ inputs.name }}:latest
       - name: Deploy Webhook
         if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
