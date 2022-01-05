@@ -53,13 +53,11 @@ jobs:
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ env.UPDATE_WEBHOOK }}
-      - name: Healthcheck request
+      - name: Healthcheck
         id: healthcheck
         if: ${{ success() && env.HEALTHCHECK_URI }}
         uses: fjogeleit/http-request-action@master
         with:
-          url: "${{ env.HEALTHCHECK_URI }}"
-          method: 'GET'
-      - name: Fail if sha is not present
-        if: inputs.HEALTHCHECK_URI && contains(steps.healthcheck.outputs.response, inputs.sha) == false
-        run: exit 1
+          url: "https://node-red.internals.goresponsa.com/checkUrl"
+          method: 'POST'
+          data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ inputs.sha }}", "retry": 3 }'
