@@ -27,7 +27,7 @@ jobs:
           path: ${{ inputs.workspace }}
       - run: |
           ls -la ${{ inputs.workspace }}
-          NEW_PATH=$(pwd)
+          echo "NEW_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
           sed -i 's,'--PATH_PLACEHOLDER--','"$NEW_PATH"', g' test-report-sonar.xml
           cat test-report-sonar.xml
       - name: sonarqube 
