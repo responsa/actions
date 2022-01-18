@@ -28,7 +28,7 @@ jobs:
       - run: |
           ls -la ${{ inputs.workspace }}
           NEW_PATH=$(pwd)
-          sed -i 's,'${{ secrets.PATH_PLACEHOLDER }}','"$NEW_PATH"', g' test-report-sonar.xml
+          sed -i 's,'[PATH_PLACEHOLDER]','"$NEW_PATH"', g' test-report-sonar.xml
           cat test-report-sonar.xml
       - name: sonarqube 
         uses: sonarsource/sonarqube-scan-action@master
