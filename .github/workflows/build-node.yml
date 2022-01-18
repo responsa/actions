@@ -28,7 +28,8 @@ jobs:
       - run: npm run jest:ci
       - run: OLD_PATH=$(pwd)
       - name: replacing 
-        run: sed -i 's,'"$OLD_PATH"','--PATH_PLACEHOLDER--', g' test-report-sonar.xml
+        run: |
+          sed -i 's,'"$OLD_PATH"','--PATH_PLACEHOLDER--', g' test-report-sonar.xml
         shell: bash
       - run: cat test-report-sonar.xml
       - uses: actions/upload-artifact@v2
