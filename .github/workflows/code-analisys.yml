@@ -26,7 +26,7 @@ jobs:
           name: jest-results
           path: ${{ inputs.workspace }}
       - run: ls -la ${{ inputs.workspace }}
-      - run: echo "NEW_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
+      - run: echo "NEW_PATH=$(pwd)" >> $GITHUB_ENV
       - run: echo $NEW_PATH
       - run: cat test-report-sonar.xml | awk -v NEW_PATH="$NEW_PATH" -v PH="--PLACE_HOLDER--" '{sub(PH, NEW_PATH, $0); print $0}' > tmp && mv tmp test-report-sonar.xml
       - run: cat test-report-sonar.xml
