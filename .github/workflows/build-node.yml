@@ -27,7 +27,7 @@ jobs:
       - run: npm run lint
       - run: npm run jest:ci
       - run: OLD_PATH=$(pwd)
-      - run: sed -i 's,'"$OLD_PATH"','--PATH_PLACEHOLDER--', g' test-report-sonar.xml
+      - run: sed -i 's|'"$OLD_PATH"'|'--PATH_PLACEHOLDER--'|g' test-report-sonar.xml
       - run: cat test-report-sonar.xml
       - uses: actions/upload-artifact@v2
         with:
