@@ -41,6 +41,7 @@ jobs:
             -Dsonar.cpd.exclusions=**/test/*,**/test/**/*
             -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*
             -Dsonar.testExecutionReportPaths=test-report-sonar.xml
+            -Dsonar.tests=.
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
