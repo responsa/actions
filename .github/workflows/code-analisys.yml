@@ -25,7 +25,9 @@ jobs:
         with:
           name: jest-results
           path: ${{ inputs.workspace }}
-      - run: ls -la ${{ inputs.workspace }}
+      - run: |
+          ls -la ${{ inputs.workspace }}
+          cat test-report-sonar.xml
       - name: sonarqube 
         uses: sonarsource/sonarqube-scan-action@master
         with:
@@ -37,7 +39,7 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*
             -Dsonar.cpd.exclusions=**/test/*,**/test/**/*
-            -Dsonar.test.inclusions=**/*test*
+            -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*
             -Dsonar.testExecutionReportPaths=test-report-sonar.xml
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
