@@ -26,6 +26,7 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm run jest:ci
+      - run: echo "OLD_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
       - run: cat test-report-sonar.xml | awk -v OLD_PATH="$OLD_PATH/" -v PH="" '{sub(OLD_PATH, PH, $0); print $0}' > tmp && mv tmp test-report-sonar.xml
       - run: cat test-report-sonar.xml
       - uses: actions/upload-artifact@v2
