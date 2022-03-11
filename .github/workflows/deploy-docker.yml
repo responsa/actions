@@ -18,9 +18,9 @@ on:
       RESPONSA_REGISTRY_PASSWORD:
         required: true
       UPDATE_WEBHOOK:
-        required: true
+        required: false
       HEALTHCHECK_URI:
-        required: true
+        required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
