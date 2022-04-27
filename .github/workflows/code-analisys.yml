@@ -33,10 +33,10 @@ jobs:
           args: >
             -Dsonar.projectKey=${{ inputs.repositoryName }}
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/test/datasets/*,**/test/datasets/**/*
+            -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*
-            -Dsonar.cpd.exclusions=**/test/*,**/test/**/*
+            -Dsonar.cpd.exclusions=**/*test*/*,**/*test*/**/*
             -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*
             -Dsonar.testExecutionReportPaths=test-report-sonar.xml
             -Dsonar.tests=.
