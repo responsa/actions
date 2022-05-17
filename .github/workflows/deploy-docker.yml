@@ -65,3 +65,11 @@ jobs:
           url: "https://node-red.internals.goresponsa.com/checkUrl"
           method: 'POST'
           data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ inputs.sha }}", "retry": 3 }'
+      - name: Healthcheck
+        id: healthcheck_mq
+        if: ${{ success() && env.HEALTHCHECK_MESSAGE }}
+        uses: fjogeleit/http-request-action@master
+        with:
+          url: "https://node-red.internals.goresponsa.com/checkUrl"
+          method: 'POST'
+          data: '{ "message": "${{ env.HEALTHCHECK_MESSAGE }}", "text": "${{ inputs.sha }}", "retry": 3 }'
