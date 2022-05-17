@@ -21,6 +21,8 @@ on:
         required: false
       HEALTHCHECK_URI:
         required: false
+      HEALTHCHECK_AGENT_NAME:
+        required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
