@@ -12,6 +12,10 @@ on:
       version:
         required: true
         type: string
+      folder:
+        required: false
+        type: string
+        default: '.'
     secrets:
       RESPONSA_REGISTRY_USERNAME:
         required: true
@@ -48,7 +52,7 @@ jobs:
           timeZone: 1
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - name: Docker build
-        run: docker build --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} .
+        run: docker build --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" -t registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} ${{ inputs.folder }}
       - name: Docker tag
         run: docker image tag registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.name }}:latest
       - name: Docker push
