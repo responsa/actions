@@ -31,7 +31,7 @@ on:
       project:
         required: false
         type: string
-        default: 'responsa'
+        default: 'main'
     secrets:
       RESPONSA_REGISTRY_USERNAME:
         required: true
