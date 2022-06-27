@@ -28,6 +28,10 @@ on:
         required: false
         type: string
         default: 'latest'
+      project:
+        required: false
+        type: string
+        default: 'responsa'
     secrets:
       RESPONSA_REGISTRY_USERNAME:
         required: true
@@ -64,17 +68,17 @@ jobs:
           timeZone: 1
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - name: Docker build
-        run: docker build -f ${{ inputs.folder }}/${{ inputs.dockerfile }} --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" ${{ inputs.additional-options }} -t registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} ${{ inputs.folder }}
+        run: docker build -f ${{ inputs.folder }}/${{ inputs.dockerfile }} --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" ${{ inputs.additional-options }} -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} ${{ inputs.folder }}
       - name: Docker tag
         if: ${{ inputs.latest-tag }}
-        run: docker image tag registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.name }}:${{ inputs.latest-tag }}
+        run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
       - name: Docker push version
         id: docker-push
-        run: docker image push registry.goresponsa.com/${{ inputs.name }}:${{ inputs.version }}
+        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
       - name: Docker push latest
         id: docker-push-latest
         if: ${{ inputs.latest-tag }}
-        run: docker image push registry.goresponsa.com/${{ inputs.name }}:${{ inputs.latest-tag }}
+        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
       - name: Deploy Webhook
         if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' && steps.docker-push-latest.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
