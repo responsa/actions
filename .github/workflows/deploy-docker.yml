@@ -43,6 +43,10 @@ on:
         required: false
       HEALTHCHECK_AGENT_NAME:
         required: false
+      GIT_USERNAME:
+        required: false
+      GIT_TOKEN:
+        required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
@@ -68,7 +72,16 @@ jobs:
           timeZone: 1
           format: 'YYYY-MM-DDTHH:mm:ss.000Z'
       - name: Docker build
-        run: docker build -f ${{ inputs.folder }}/${{ inputs.dockerfile }} --network=secrets --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" ${{ inputs.additional-options }} -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} ${{ inputs.folder }}
+        run: |
+          docker build 
+            -f ${{ inputs.folder }}/${{ inputs.dockerfile }} 
+            --network=secrets 
+            --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" 
+            --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" 
+            --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" 
+            --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" 
+            ${{ inputs.additional-options }} 
+            -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} ${{ inputs.folder }}
       - name: Docker tag
         if: ${{ inputs.latest-tag }}
         run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
