@@ -40,5 +40,5 @@ jobs:
           name: jest-results
           retention-days: 1
           path: |
-            test-report-sonar.xml
-            coverage
+            ${{ inputs.folder }}test-report-sonar.xml
+            ${{ inputs.folder }}coverage
