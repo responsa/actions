@@ -5,10 +5,10 @@ on:
     inputs:
       node_version:
         type: string
-        default: '16'
+        default: "16"
       folder:
         type: string
-        default: '.'      
+        default: "./"
     secrets:
       NPM_HOST:
         required: true
@@ -19,6 +19,9 @@ on:
 jobs:
   node:
     runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: ${{ inputs.folder }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
@@ -26,7 +29,6 @@ jobs:
           node-version: ${{ inputs.node_version }}
       - run: echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - run: echo ${{ secrets.NPM_SCOPE }}:registry=https://${{ secrets.NPM_HOST }} >> ~/.npmrc
-      - run: cd ${{ inputs.folder }}
       - run: npm install
       - run: npm run lint
       - run: npm run jest:ci
