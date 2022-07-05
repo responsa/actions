@@ -28,8 +28,6 @@ on:
         required: false
         default: warning ƪ(‾ε‾“)ʃ
     secrets:
-      GITHUB_TOKEN:
-        required: true
       MS_TEAMS_WEBHOOK_FAILURE_URI:
         required: true
 
