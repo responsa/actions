@@ -6,7 +6,10 @@ on:
       status:
         required: true
         type: string
-        options: ['warning','success','error']
+        options: 
+          - warning
+          - success
+          - error
       repositoryName:
         required: true
         type: string
@@ -18,7 +21,7 @@ on:
         type: string
         required: false
         default: success (´▽`ʃƪ)
-      error_message:
+      warning_message:
         type: string
         required: false
         default: warning ƪ(‾ε‾“)ʃ
