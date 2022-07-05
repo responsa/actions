@@ -28,7 +28,11 @@ on:
         required: false
         default: warning ƪ(‾ε‾“)ʃ
     secrets:
+      MS_TEAMS_WEBHOOK_SUCCESS_URI:
+        required: true
       MS_TEAMS_WEBHOOK_FAILURE_URI:
+        required: true
+      MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI:
         required: true
 
 jobs:
