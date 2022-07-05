@@ -3,13 +3,15 @@ name: code-analisys
 on:
   workflow_call:
     inputs:
-      status:
+      error:
         required: true
-        type: string
-        options: 
-          - warning
-          - success
-          - error
+        type: boolean
+      success:
+        required: true
+        type: boolean
+      warning:
+        required: true
+        type: boolean
       repositoryName:
         required: true
         type: string
@@ -33,7 +35,7 @@ on:
 
 jobs:
   error:
-    if: inputs.status == 'error'
+    if: inputs.error
     runs-on: self-hosted
     steps:
       - name: Notify dedicated teams channel
@@ -46,7 +48,7 @@ jobs:
           timezone: Europe/Rome
 
   warning:
-    if: inputs.status == 'error'
+    if: inputs.warning
     runs-on: self-hosted
     steps:
       - name: Notify dedicated teams channel
@@ -59,7 +61,7 @@ jobs:
           timezone: Europe/Rome
 
   success:  
-    if: inputs.status == 'success'
+    if: inputs.success
     runs-on: self-hosted
     steps:
       - name: Notify dedicated teams channel
