@@ -1,0 +1,69 @@
+name: code-analisys
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        required: true
+        type: string
+        options: ['warning','success','error']
+      repositoryName:
+        required: true
+        type: string
+      error_message:
+        type: string
+        required: false
+        default: error ୧༼ಠ益ಠ༽୨
+      success_message:
+        type: string
+        required: false
+        default: success (´▽`ʃƪ)
+      error_message:
+        type: string
+        required: false
+        default: warning ƪ(‾ε‾“)ʃ
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+      MS_TEAMS_WEBHOOK_FAILURE_URI:
+        required: true
+
+jobs:
+  error:
+    if: inputs.status == 'error'
+    runs-on: self-hosted
+    steps:
+      - name: Notify dedicated teams channel
+        uses: TBCTSystems/ms-teams-notification@v1.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_FAILURE_URI }}
+          notification-summary: ${{ inputs.repositoryName }}: ${{ inputs.error_message }}
+          notification-color: dc3545
+          timezone: Europe/Rome
+
+  warning:
+    if: inputs.status == 'error'
+    runs-on: self-hosted
+    steps:
+      - name: Notify dedicated teams channel
+        uses: TBCTSystems/ms-teams-notification@v1.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI }}
+          notification-summary: ${{ inputs.repositoryName }}: ${{ inputs.warning_message }}
+          notification-color: ffc107
+          timezone: Europe/Rome
+
+  success:  
+    if: inputs.status == 'success'
+    runs-on: self-hosted
+    steps:
+      - name: Notify dedicated teams channel
+        uses: TBCTSystems/ms-teams-notification@v1.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_SUCCESS_URI }}
+          notification-summary: ${{ inputs.repositoryName }}: ${{ inputs.success_message }}
+          notification-color: 28a745
+          timezone: Europe/Rome
