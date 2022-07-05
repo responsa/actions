@@ -9,6 +9,9 @@ on:
       folder:
         type: string
         default: "./"
+      testCmd:
+        type: string
+        default: "jest:ci"
     secrets:
       NPM_HOST:
         required: true
@@ -27,14 +30,21 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ inputs.node_version }}
-      - run: echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-      - run: echo ${{ secrets.NPM_SCOPE }}:registry=https://${{ secrets.NPM_HOST }} >> ~/.npmrc
-      - run: npm install
-      - run: npm run lint
-      - run: npm run jest:ci
-      - run: echo "OLD_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
-      - run: cat test-report-sonar.xml | awk -v OLD_PATH="$OLD_PATH/" -v PH="" '{sub(OLD_PATH, PH, $0); print $0}' > tmp && mv tmp test-report-sonar.xml
-      - run: cat test-report-sonar.xml
+      - name: login to verdaccio
+        run: |
+          echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          echo ${{ secrets.NPM_SCOPE }}:registry=https://${{ secrets.NPM_HOST }} >> ~/.npmrc
+      - name: install
+        run: npm install
+      - name: lint
+        run: npm run lint
+      - name: test
+        run: npm run ${{ inputs.testCmd }}
+      - name: prep reports
+        run: |
+          echo "OLD_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
+          cat test-report-sonar.xml | awk -v OLD_PATH="$OLD_PATH/" -v PH="" '{sub(OLD_PATH, PH, $0); print $0}' > tmp && mv tmp test-report-sonar.xml
+          cat test-report-sonar.xml
       - uses: actions/upload-artifact@v2
         with:
           name: jest-results
