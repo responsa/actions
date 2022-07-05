@@ -50,6 +50,7 @@ on:
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
+
 jobs:
   docker:
     runs-on: self-hosted
@@ -58,7 +59,6 @@ jobs:
         working-directory: ${{ inputs.folder }}
     steps:
       - uses: actions/checkout@v2
-
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
