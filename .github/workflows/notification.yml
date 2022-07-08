@@ -10,8 +10,9 @@ on:
         required: true
         type: boolean
       warning:
-        required: true
+        required: false
         type: boolean
+        default: false
       repositoryName:
         required: true
         type: string
