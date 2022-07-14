@@ -9,10 +9,6 @@ on:
       repositoryName:
         required: true
         type: string
-      folder:
-        required: false
-        type: string
-        default: "./"
     secrets:
       SONAR_TOKEN:
         required: true
@@ -22,15 +18,13 @@ on:
 jobs:
   sonarqube:
     runs-on: self-hosted
-    defaults:
-      run:
-        working-directory: ${{ inputs.folder }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
           name: jest-results
           path: ${{ inputs.workspace }}
+      - run: ls -la ${{ inputs.workspace }}
       - name: sonarqube
         uses: sonarsource/sonarqube-scan-action@master
         with:
