@@ -1,4 +1,4 @@
-name: code-analisys
+name: notification
 
 on:
   workflow_call:
