@@ -24,7 +24,9 @@ jobs:
         with:
           name: jest-results
           path: ${{ inputs.workspace }}
+      - run: pwd
       - run: ls -la ${{ inputs.workspace }}
+      - run: ls -la /github/workspace
       - name: sonarqube
         uses: sonarsource/sonarqube-scan-action@master
         with:
