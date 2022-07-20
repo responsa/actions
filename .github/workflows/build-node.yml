@@ -12,6 +12,9 @@ on:
       testCmd:
         type: string
         default: "jest:ci"
+      force:
+        type: boolean
+        default: false
     secrets:
       NPM_HOST:
         required: true
@@ -35,7 +38,11 @@ jobs:
           echo //${{ secrets.NPM_HOST }}/:_authToken="${{ secrets.NPM_TOKEN }}" > ~/.npmrc
           echo ${{ secrets.NPM_SCOPE }}:registry=https://${{ secrets.NPM_HOST }} >> ~/.npmrc
       - name: install
+        if: inputs.force == false
         run: npm install
+      - name: install
+        if: inputs.force == true
+        run: npm install --force
       - name: lint
         run: npm run lint
       - name: test
