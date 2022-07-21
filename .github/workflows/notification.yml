@@ -46,7 +46,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_FAILURE_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.error_message }} (${{ github.event.head_commit.message }})"
+          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.error_message }} - ${{ github.event.head_commit.message }}"
           notification-color: dc3545
           timezone: Europe/Rome
 
@@ -59,7 +59,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.warning_message }} (${{ github.event.head_commit.message }})"
+          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.warning_message }} - ${{ github.event.head_commit.message }}"
           notification-color: ffc107
           timezone: Europe/Rome
 
@@ -72,6 +72,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_SUCCESS_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.success_message }} (${{ github.event.head_commit.message }})"
+          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.success_message }} - ${{ github.event.head_commit.message }}"
           notification-color: 28a745
           timezone: Europe/Rome
