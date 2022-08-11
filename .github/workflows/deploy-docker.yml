@@ -84,19 +84,20 @@ jobs:
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
           --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
           ${{ inputs.additional-options }}
-          -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} .
-      - name: Docker tag
-        if: ${{ inputs.latest-tag }}
-        run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
-      - name: Docker push version
-        id: docker-push
-        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
+          -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} .
       - name: Docker push latest
         id: docker-push-latest
         if: ${{ inputs.latest-tag }}
         run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
+      - name: Docker tag version
+        if: ${{ inputs.version }}
+        run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
+      - name: Docker push version
+        id: docker-push
+        if: ${{ inputs.version }}
+        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
       - name: Deploy Webhook
-        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push.conclusion == 'success' && steps.docker-push-latest.conclusion == 'success' }}
+        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ env.UPDATE_WEBHOOK }}
