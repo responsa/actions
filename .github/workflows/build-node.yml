@@ -49,7 +49,9 @@ jobs:
         run: npm run ${{ inputs.testCmd }}
       - name: prep reports
         run: |
+          echo "Current old path is: $(pwd)"
           echo "OLD_PATH=$(pwd | sed 's,/,\\/,g')" >> $GITHUB_ENV
+          export OLD_PATH=$(pwd)
           cat test-report-sonar.xml | awk -v OLD_PATH="$OLD_PATH/" -v PH="" '{sub(OLD_PATH, PH, $0); print $0}' > tmp && mv tmp test-report-sonar.xml
           cat test-report-sonar.xml
       - uses: actions/upload-artifact@v2
