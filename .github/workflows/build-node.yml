@@ -12,6 +12,12 @@ on:
       testCmd:
         type: string
         default: "jest:ci"
+      buildCmd:
+        type: string
+        required: false
+      buildOutputUploadPath:
+        type: string
+        required: false
       force:
         type: boolean
         default: false
@@ -61,3 +67,14 @@ jobs:
           path: |
             ${{ inputs.folder }}test-report-sonar.xml
             ${{ inputs.folder }}coverage
+      - name: build
+        if: inputs.buildCmd
+        run: npm run ${{ imputs.buildCmd }}
+      - name: upload build results
+        if: buildOutputUploadPath
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-results
+          retention-days: 1
+          path: |
+            ${{ inputs.folder }}${{ buildOutputUploadPath }}
