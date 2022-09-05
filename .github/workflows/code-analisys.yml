@@ -11,17 +11,7 @@ on:
         type: string
       args:
         type: string
-        default: >
-          -X
-          -Dsonar.projectKey=${{ inputs.repositoryName }}
-          -Dsonar.sources=.
-          -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
-          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
-          -Dsonar.cpd.exclusions=**/*test*/*,**/*test*/**/*,**/*.spec.*
-          -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
-          -Dsonar.testExecutionReportPaths=test-report-sonar.xml
-          -Dsonar.tests=.
+        required: false 
     secrets:
       SONAR_TOKEN:
         required: true
@@ -39,11 +29,31 @@ jobs:
           path: ${{ inputs.workspace }}
       - run: pwd
       - run: ls -la ${{ inputs.workspace }}
-      - name: sonarqube
+      - name: sonarqube_external_args
+        if: inputs.args
         uses: sonarsource/sonarqube-scan-action@master
         with:
           projectBaseDir: /github/workspace
           args: ${{ inputs.args }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: sonarqube_default
+        if: inputs.args == null
+        uses: sonarsource/sonarqube-scan-action@master
+        with:
+          projectBaseDir: /github/workspace
+          args: >
+            -X
+            -Dsonar.projectKey=${{ inputs.repositoryName }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
+            -Dsonar.cpd.exclusions=**/*test*/*,**/*test*/**/*,**/*.spec.*
+            -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
+            -Dsonar.testExecutionReportPaths=test-report-sonar.xml
+            -Dsonar.tests=.
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
