@@ -9,6 +9,19 @@ on:
       repositoryName:
         required: true
         type: string
+      args:
+        type: string
+        default: >
+          -X
+          -Dsonar.projectKey=${{ inputs.repositoryName }}
+          -Dsonar.sources=.
+          -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+          -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
+          -Dsonar.cpd.exclusions=**/*test*/*,**/*test*/**/*,**/*.spec.*
+          -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
+          -Dsonar.testExecutionReportPaths=test-report-sonar.xml
+          -Dsonar.tests=.
     secrets:
       SONAR_TOKEN:
         required: true
@@ -30,17 +43,7 @@ jobs:
         uses: sonarsource/sonarqube-scan-action@master
         with:
           projectBaseDir: /github/workspace
-          args: >
-            -X
-            -Dsonar.projectKey=${{ inputs.repositoryName }}
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.coverage.exclusions=**/coverage/*,**/coverage/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
-            -Dsonar.cpd.exclusions=**/*test*/*,**/*test*/**/*,**/*.spec.*
-            -Dsonar.test.inclusions=**/*test*,**/test/**/*,**/*test*,**/*test*/*,**/*test*/**/*,**/*.spec.*
-            -Dsonar.testExecutionReportPaths=test-report-sonar.xml
-            -Dsonar.tests=.
+          args: ${{ inputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
