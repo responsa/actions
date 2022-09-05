@@ -44,7 +44,6 @@ jobs:
         with:
           projectBaseDir: /github/workspace
           args: >
-            -X
             -Dsonar.projectKey=${{ inputs.repositoryName }}
             -Dsonar.sources=.
             -Dsonar.exclusions=**/coverage/*,**/coverage/**/*,**/*test*/datasets/*,**/*test*/datasets/**/*
