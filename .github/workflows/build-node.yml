@@ -69,12 +69,12 @@ jobs:
             ${{ inputs.folder }}coverage
       - name: build
         if: inputs.buildCmd
-        run: npm run ${{ imputs.buildCmd }}
+        run: npm run ${{ inputs.buildCmd }}
       - name: upload build results
-        if: buildOutputUploadPath
+        if: inputs.buildOutputUploadPath
         uses: actions/upload-artifact@v2
         with:
           name: build-results
           retention-days: 1
           path: |
-            ${{ inputs.folder }}${{ buildOutputUploadPath }}
+            ${{ inputs.folder }}${{ inputs.buildOutputUploadPath }}
