@@ -1,0 +1,49 @@
+name: aws-s3-sync
+
+on:
+  workflow_call:
+    inputs:
+      s3Bucket:
+        required: true
+        type: string
+      bucketPath:
+        type: string
+        default: "/"
+      awsRegion:
+        type: string
+        default: "eu-west-1"
+      artifactToSyncName:
+        type: string
+        required: true
+      artifactDownloadPath:
+        type: string
+        default: "./"
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+  s3-sync:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: download artifact to sync
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ inputs.artifactToSyncName }}
+          path: ${{ inputs.artifactDownloadPath }}
+      - run: pwd
+      - run: ls -la ${{ inputs.artifactDownloadPath }}
+      - name: s3 bucket sync
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --acl public-read --follow-symlinks --delete
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ inputs.awsRegion }}
+          SOURCE_DIR: ${{ inputs.artifactDownloadPath }}
+          DEST_DIR: ${{ inputs.bucketPath }}
