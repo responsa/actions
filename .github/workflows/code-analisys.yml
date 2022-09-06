@@ -59,7 +59,7 @@ jobs:
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
-          scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace == '' && '' || format('{0}/', inputs.workspace)) }}
+          scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace != '' && format('{0}/', inputs.workspace) || '' ) }}
         timeout-minutes: 1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
