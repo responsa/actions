@@ -70,6 +70,8 @@ jobs:
       - name: build
         if: inputs.buildCmd
         run: npm run ${{ inputs.buildCmd }}
+        env:
+          CI: ""
       - name: upload build results
         if: inputs.buildOutputUploadPath
         uses: actions/upload-artifact@v2
