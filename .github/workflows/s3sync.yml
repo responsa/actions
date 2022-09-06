@@ -17,7 +17,7 @@ on:
         required: true
       artifactDownloadPath:
         type: string
-        default: "./"
+        default: "./artifact"
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -45,5 +45,5 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ inputs.awsRegion }}
-          SOURCE_DIR: ${{ inputs.artifactDownloadPath }}
+          SOURCE_DIR: ${{ inputs.artifactDownloadPath }}/**/*
           DEST_DIR: ${{ inputs.bucketPath }}
