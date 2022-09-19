@@ -17,10 +17,15 @@ on:
         required: true
       SONAR_HOST_URL:
         required: true
-
+    outputs:
+      quality_ok:
+        description: "The first output string"
+        value: ${{ jobs.sonarqube.outputs.quality_ok }}
 jobs:
   sonarqube:
     runs-on: self-hosted
+    outputs:
+      quality_ok: ${{ steps.check.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
@@ -57,6 +62,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - name: SonarQube Quality Gate check
+        id: check
+        continue-on-error: true
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
           scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace != '' && format('{0}/', inputs.workspace) || '' ) }}
@@ -64,3 +71,4 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
