@@ -11,7 +11,11 @@ on:
         type: string
       args:
         type: string
-        required: false 
+        required: false
+      continue-on-error:
+        type: boolean
+        required: false
+        default: false
     secrets:
       SONAR_TOKEN:
         required: true
@@ -62,7 +66,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - name: SonarQube Quality Gate check
         id: check
-        continue-on-error: true
+        continue-on-error: ${{ inputs.continue-on-error }}
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
           scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace != '' && format('{0}/', inputs.workspace) || '' ) }}
@@ -70,8 +74,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      - name: test
-        run: echo "${{ steps.check.outcome == 'success' }}"
       - run: echo "::warning ::Quality check failed"
         if: steps.check.outcome != 'success'
 
