@@ -64,9 +64,21 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      - name: SonarQube Quality Gate check
-        id: check
-        continue-on-error: ${{ inputs.continue-on-error }}
+      - name: SonarQube Quality Gate check - breaks on failed
+        if: inputs.continue-on-error == 'false'
+        id: check_on_break
+        continue-on-error: false
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace != '' && format('{0}/', inputs.workspace) || '' ) }}
+        timeout-minutes: 1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: SonarQube Quality Gate check - continue on error
+        if: inputs.continue-on-error == 'true'
+        id: check_on_continue
+        continue-on-error: true
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
           scanMetadataReportFile: ${{ format('{0}.scannerwork/report-task.txt', inputs.workspace != '' && format('{0}/', inputs.workspace) || '' ) }}
@@ -75,6 +87,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - run: echo "::warning ::Quality check failed"
-        if: steps.check.outcome != 'success'
+        if: steps.check_on_break.outcome != 'success' && steps.check_on_continue.outcome != 'success
 
 
