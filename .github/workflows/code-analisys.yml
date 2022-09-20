@@ -87,6 +87,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - run: echo "::warning ::Quality check failed"
-        if: steps.check_on_break.outcome != 'success' && steps.check_on_continue.outcome != 'success
+        if: steps.check_on_break.outcome != 'success' && steps.check_on_continue.outcome != 'success'
 
 
