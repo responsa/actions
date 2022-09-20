@@ -54,6 +54,7 @@ env:
 jobs:
   docker:
     runs-on: self-hosted
+    environment: Production
     defaults:
       run:
         working-directory: ${{ inputs.folder }}
