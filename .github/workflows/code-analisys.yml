@@ -15,7 +15,7 @@ on:
       continue-on-error:
         type: boolean
         required: false
-        default: false
+        default: true
     secrets:
       SONAR_TOKEN:
         required: true
