@@ -82,6 +82,7 @@ jobs:
         run: >
           docker buildx build
           -f ${{ inputs.dockerfile }}
+          --network secrets
           --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
           --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
