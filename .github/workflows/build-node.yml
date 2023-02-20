@@ -21,6 +21,9 @@ on:
       force:
         type: boolean
         default: false
+      tz:
+        type: string
+        required: false
     secrets:
       NPM_HOST:
         required: true
@@ -60,6 +63,9 @@ jobs:
       - name: install
         if: inputs.force == true
         run: npm install --force
+      - name: setting timezone
+        if: inputs.tz
+        run: export TZ=${{ inputs.tz }}
       - name: lint
         run: npm run lint
       - name: test
