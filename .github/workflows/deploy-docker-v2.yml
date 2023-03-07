@@ -86,9 +86,9 @@ jobs:
           docker build
           --no-cache 
           -f ${{ inputs.dockerfile }}
-          --build-arg NPM_HOSTNAME="{{ secrets.RESPONSA_NPM_HOSTNAME }}"
-          --build-arg NPM_TOKEN="{{ secrets.RESPONSA_NPM_TOKEN }}"
-          --build-arg NPM_SCOPE="{{ secrets.RESPONSA_NPM_SCOPE }}"
+          --build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"
+          --build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"
+          --build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"
           --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
           --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
