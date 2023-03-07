@@ -65,12 +65,6 @@ jobs:
       run:
         working-directory: ${{ inputs.folder }}
     steps:
-      - name: Echo out a GitHub Actions RESPONSA_NPM_HOSTNAME Secret to the logs
-        run: |
-          echo "The GitHub Action RESPONSA_NPM_HOSTNAME Secret will be masked:  "
-          echo ${{ secrets.RESPONSA_NPM_HOSTNAME }}
-          echo "Trick to echo GitHub Actions RESPONSA_NPM_HOSTNAME Secret:  "
-          echo ${{secrets.RESPONSA_NPM_HOSTNAME}} | sed 's/./& /g'
       - uses: actions/checkout@v3
       - name: Set up Docker Buildx
         id: buildx
