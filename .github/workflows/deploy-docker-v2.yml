@@ -102,6 +102,7 @@ jobs:
         if: ${{ inputs.version }}
         run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
       - name: Docker push version
+        continue-on-error: true
         id: docker-push
         if: ${{ inputs.version }}
         run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
