@@ -1,0 +1,80 @@
+name: node-project
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+env:
+  UPDATE_WEBHOOK: ${{ secrets.UPDATE_WEBHOOK }}
+  HEALTHCHECK_URI: ${{ secrets.HEALTHCHECK_URI }}
+
+jobs:
+  build:
+    uses: responsa/actions/.github/workflows/build-node.yml@main
+    secrets:
+      NPM_HOST: ${{ secrets.RESPONSA_NPM_HOSTNAME }}
+      NPM_TOKEN: ${{ secrets.RESPONSA_NPM_TOKEN }}
+      NPM_SCOPE: ${{ secrets.RESPONSA_NPM_SCOPE }}
+
+  code-analisys:
+    needs: build
+    uses: responsa/actions/.github/workflows/code-analisys.yml@main
+    with:
+      workspace: ${{ github.workspace }}
+      repositoryName: ${{ github.event.repository.name }}
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  prepare:
+    needs: build
+    runs-on: self-hosted
+    outputs:
+      name: ${{ steps.prepare.outputs.name }}
+      version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Extract package.json info
+        id: prepare
+        uses: codex-team/action-nodejs-package-info@v1
+
+  deploy:
+    needs: prepare
+    uses: responsa/actions/.github/workflows/deploy-docker-v2.yml@main
+    with:
+      sha: ${{ github.sha }}
+      name: ${{ needs.prepare.outputs.name }}
+      version: ${{ needs.prepare.outputs.version }}
+    secrets:
+      UPDATE_WEBHOOK: ${{ secrets.UPDATE_WEBHOOK }}
+      HEALTHCHECK_AGENT_NAME: ${{ needs.prepare.outputs.name }}
+      RESPONSA_REGISTRY_USERNAME: ${{ secrets.RESPONSA_REGISTRY_USERNAME }}
+      RESPONSA_REGISTRY_PASSWORD: ${{ secrets.RESPONSA_REGISTRY_PASSWORD }}
+      RESPONSA_NPM_HOSTNAME: ${{ secrets.RESPONSA_NPM_HOSTNAME }}
+      RESPONSA_NPM_TOKEN: ${{ secrets.RESPONSA_NPM_TOKEN }}
+      RESPONSA_NPM_SCOPE: ${{ secrets.RESPONSA_NPM_SCOPE }}
+
+  tag:
+    needs: deploy
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: salsify/action-detect-and-tag-new-version@v2
+
+  notification:
+    needs: [deploy, build, code-analisys]
+    if: always()
+    uses: responsa/actions/.github/workflows/notification.yml@main
+    with:
+      error: ${{ needs.build.result == 'failure' || needs.deploy.result == 'failure' }}
+      warning: ${{ needs.deploy.result == 'success' && needs.code-analisys.result == 'failure' }}
+      success: ${{ needs.deploy.result == 'success' && needs.code-analisys.result == 'success' }}
+      repositoryName: ${{ github.event.repository.name }}
+    secrets:
+      MS_TEAMS_WEBHOOK_SUCCESS_URI: ${{ secrets.MS_TEAMS_WEBHOOK_SUCCESS_URI }}
+      MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI: ${{ secrets.MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI }}
+      MS_TEAMS_WEBHOOK_FAILURE_URI: ${{ secrets.MS_TEAMS_WEBHOOK_FAILURE_URI }}
