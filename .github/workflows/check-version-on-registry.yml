@@ -36,5 +36,6 @@ jobs:
       - name: Checking registry for image ${{ inputs.image-name }} and version ${{ inputs.version-to-check}}
         id: registry-check
         run: |
-          manifest=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.RESPONSA_REGISTRY_USERNAME }}:${{ secrets.RESPONSA_REGISTRY_PASSWORD }}" https://${{ inputs.registry }}/v2/${{ inputs.registry-project }}/${{ inputs.image-name }}/manifests/${{ inputs.version-to-check}})
+          export REG_PWD='${{ secrets.RESPONSA_REGISTRY_PASSWORD }}'
+          manifest=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.RESPONSA_REGISTRY_USERNAME }}:${REG_PWD}" https://${{ inputs.registry }}/v2/${{ inputs.registry-project }}/${{ inputs.image-name }}/manifests/${{ inputs.version-to-check }})
           echo "already-present=$([[ ${manifest} -eq 200 ]] && { echo 1;:; } || { echo 0; })" >> $GITHUB_OUTPUT
