@@ -18,6 +18,13 @@ on:
       test_command:
         type: string
         default: "coverage run -m pytest && coverage xml"
+    outputs:
+      package-name:
+        description: The name of the built package
+        value: ${{ jobs.python.outputs.package-name }}
+      package-version:
+        description: The version of the built package
+        value: ${{ jobs.python.outputs.package-version }}
 jobs:
   python:
     runs-on: self-hosted
