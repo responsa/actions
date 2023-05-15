@@ -25,8 +25,8 @@ jobs:
       run:
         working-directory: ${{ inputs.folder }}
     outputs:
-        package-name: ${{ steps.python_info.outputs.package-name }}
-        package-version: ${{ steps.python_info.outputs.package-version }}
+        package-name: ${{ steps.python_info_name.outputs.package-name }}
+        package-version: ${{ steps.python_info_version.outputs.package-version }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4 
@@ -48,8 +48,11 @@ jobs:
          retention-days: 1
          path: |
            ${{ inputs.folder }}/coverage.xml
-      - name: Getting package name and version
-        id: python_info
+      - name: Getting package name
+        id: python_info_name
         run: |
           echo "package-name=$(python ${{ inputs.folder }}/setup.py --name)" >> $GITHUB_OUTPUT
+      - name: Getting package version
+        id: python_info_version
+        run: |
           echo "package-version=$(python ${{ inputs.folder }}/setup.py --version)" >> $GITHUB_OUTPUT
