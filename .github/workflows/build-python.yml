@@ -51,8 +51,10 @@ jobs:
       - name: Getting package name
         id: python_info_name
         run: |
+          echo $(python ${{ inputs.folder }}/setup.py --name) 
           echo "package-name=$(python ${{ inputs.folder }}/setup.py --name)" >> "$GITHUB_OUTPUT"
       - name: Getting package version
         id: python_info_version
         run: |
+          echo $(python ${{ inputs.folder }}/setup.py --version) 
           echo "package-version=$(python ${{ inputs.folder }}/setup.py --version)" >> "$GITHUB_OUTPUT"
