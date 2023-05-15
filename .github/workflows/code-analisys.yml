@@ -31,7 +31,7 @@ jobs:
   sonarqube:
     runs-on: self-hosted
     outputs:
-      quality_ok: ${{ steps.check.outcome == 'success' }}
+      quality_ok: ${{ (inputs.continue-on-error == true && steps.check_on_continue.outcome == 'success') ||  (inputs.continue-on-error == false && steps.check_on_break.outcome == 'success') }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
