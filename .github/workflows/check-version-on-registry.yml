@@ -22,6 +22,10 @@ on:
         required: true
       RESPONSA_REGISTRY_PASSWORD:
         required: true
+    outputs:
+      already-present:
+        description: Returns 1 if package is already present in registry with input name and version
+        value: ${{ jobs.version-checking.outputs.already-present }}
 
 jobs:
   version-checking:
