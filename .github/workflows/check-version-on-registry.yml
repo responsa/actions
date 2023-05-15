@@ -1,0 +1,36 @@
+name: check-version-on-registry.yml
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        required: true
+        type: string
+      version-to-check:
+        required: true
+        type: string
+      registry:
+        required: false
+        type: string
+        default: registry.goresponsa.com
+      registry-project:
+        required: false
+        type: string
+        default: main
+    secrets:
+      RESPONSA_REGISTRY_USERNAME:
+        required: true
+      RESPONSA_REGISTRY_PASSWORD:
+        required: true
+
+jobs:
+  version-checking:
+    runs-on: self-hosted
+    outputs:
+        already-present: ${{ steps.registry-check.outputs.already-present }}
+    steps:
+      - name: Checking registry for image ${{ inputs.image-name }} and version ${{ inputs.version-to-check}}
+        id: registry-check
+        run: |
+          manifest=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.RESPONSA_REGISTRY_USERNAME }}:${{ secrets.RESPONSA_REGISTRY_PASSWORD }}" https://${{ inputs.registry }}/v2/${{ inputs.registry-project }}/${{ inputs.image-name }}/manifests/${{ inputs.version-to-check}})
+          echo "already-present=$([[ ${manifest} -eq 200 ]] && { echo 1;:; } || { echo 0; })" >> $GITHUB_OUTPUT

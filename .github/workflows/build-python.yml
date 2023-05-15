@@ -1,0 +1,55 @@
+name: build-python
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.9"
+      lint-fail-under:
+        type: string
+        default: "9"
+      folder:
+        type: string
+        default: "."
+      app-folder:
+        type: string
+        default: "./app"
+      test_command:
+        type: string
+        default: "coverage run -m pytest && coverage xml"
+jobs:
+  python:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: ${{ inputs.folder }}
+    outputs:
+        package-name: ${{ steps.python_info.outputs.package-name }}
+        package-version: ${{ steps.python_info.outputs.package-version }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4 
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ inputs.folder }}/requirements.txt
+          pip install -r ${{ inputs.folder }}/requirements_dev.txt
+      - name: Linting
+        run: pylint --recursive=y --fail-under=${{ inputs.lint-fail-under }} ${{ inputs.app-folder }}/*
+      - name: Testing
+        run: |
+         export PYTHONPATH=${{ inputs.folder }}:${{ inputs.app-folder }}
+         ${{ inputs.test_command }}
+      - uses: actions/upload-artifact@v3
+        with:
+         name: pytest-results
+         retention-days: 1
+         path: |
+           ${{ inputs.folder }}/coverage.xml
+      - name: Getting package name and version
+        id: python_info
+        run: |
+          echo "package-name=$(python ${{ inputs.folder }}/setup.py --name)" >> $GITHUB_OUTPUT
+          echo "package-version=$(python ${{ inputs.folder }}/setup.py --version)" >> $GITHUB_OUTPUT
