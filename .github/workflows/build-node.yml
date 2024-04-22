@@ -5,7 +5,7 @@ on:
     inputs:
       node_version:
         type: string
-        default: "16"
+        default: "20"
       folder:
         type: string
         default: "./"
