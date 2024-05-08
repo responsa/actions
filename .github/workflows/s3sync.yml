@@ -8,16 +8,16 @@ on:
         type: string
       bucketPath:
         type: string
-        default: "/"
+        default: '/'
       awsRegion:
         type: string
-        default: "eu-west-1"
+        default: 'eu-west-1'
       artifactToSyncName:
         type: string
         required: true
       artifactDownloadPath:
         type: string
-        default: "./artifact"
+        default: './artifact'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -28,9 +28,9 @@ jobs:
   s3-sync:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: download artifact to sync
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifactToSyncName }}
           path: ${{ inputs.artifactDownloadPath }}

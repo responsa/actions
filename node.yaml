@@ -35,7 +35,7 @@ jobs:
       name: ${{ steps.prepare.outputs.name }}
       version: ${{ steps.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Extract package.json info
         id: prepare
         uses: codex-team/action-nodejs-package-info@v1
@@ -60,7 +60,7 @@ jobs:
     needs: deploy
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: salsify/action-detect-and-tag-new-version@v2

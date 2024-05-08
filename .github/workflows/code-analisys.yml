@@ -33,8 +33,8 @@ jobs:
     outputs:
       quality_ok: ${{ (inputs.continue-on-error == true && steps.check_on_continue.outcome == 'success') ||  (inputs.continue-on-error == false && steps.check_on_break.outcome == 'success') }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.test-artifact-name }}
           path: ${{ inputs.workspace }}
@@ -44,7 +44,7 @@ jobs:
         if: inputs.args
         uses: sonarsource/sonarqube-scan-action@master
         with:
-          projectBaseDir: ${{ format('/github/workspace{0}', inputs.workspace != '' && format('/{0}', inputs.workspace) || '' ) }} 
+          projectBaseDir: ${{ format('/github/workspace{0}', inputs.workspace != '' && format('/{0}', inputs.workspace) || '' ) }}
           args: ${{ inputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -91,5 +91,3 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       - run: echo "::warning ::Quality check failed"
         if: steps.check_on_break.outcome != 'success' && steps.check_on_continue.outcome != 'success'
-
-

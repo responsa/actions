@@ -5,19 +5,19 @@ on:
     inputs:
       python-version:
         type: string
-        default: "3.9"
+        default: '3.9'
       lint-fail-under:
         type: string
-        default: "9"
+        default: '9'
       folder:
         type: string
-        default: "."
+        default: '.'
       app-folder:
         type: string
-        default: "./app"
+        default: './app'
       test_command:
         type: string
-        default: "coverage run -m pytest && coverage xml"
+        default: 'coverage run -m pytest && coverage xml'
     outputs:
       package-name:
         description: The name of the built package
@@ -32,11 +32,11 @@ jobs:
       run:
         working-directory: ${{ inputs.folder }}
     outputs:
-        package-name: ${{ steps.python_info_name.outputs.package-name }}
-        package-version: ${{ steps.python_info_version.outputs.package-version }}
+      package-name: ${{ steps.python_info_name.outputs.package-name }}
+      package-version: ${{ steps.python_info_version.outputs.package-version }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4 
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ inputs.python-version }}
       - name: Install dependencies
@@ -47,14 +47,14 @@ jobs:
         run: pylint --recursive=y --fail-under=${{ inputs.lint-fail-under }} ${{ inputs.app-folder }}/*
       - name: Testing
         run: |
-         export PYTHONPATH=${{ inputs.folder }}:${{ inputs.app-folder }}
-         ${{ inputs.test_command }}
-      - uses: actions/upload-artifact@v3
+          export PYTHONPATH=${{ inputs.folder }}:${{ inputs.app-folder }}
+          ${{ inputs.test_command }}
+      - uses: actions/upload-artifact@v4
         with:
-         name: pytest-results
-         retention-days: 1
-         path: |
-           ${{ inputs.folder }}/coverage.xml
+          name: pytest-results
+          retention-days: 1
+          path: |
+            ${{ inputs.folder }}/coverage.xml
       - name: Getting package name
         id: python_info_name
         run: |
