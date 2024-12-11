@@ -44,7 +44,7 @@ jobs:
         if: inputs.args
         uses: sonarsource/sonarqube-scan-action@master
         with:
-          projectBaseDir: ${{ inputs.workspace }}
+          projectBaseDir: .
           args: ${{ inputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -53,7 +53,7 @@ jobs:
         if: inputs.args == null
         uses: sonarsource/sonarqube-scan-action@master
         with:
-          projectBaseDir: ${{ inputs.workspace }}
+          projectBaseDir: .
           args: >
             -Dsonar.projectKey=${{ inputs.repositoryName }}
             -Dsonar.sources=.
