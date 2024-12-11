@@ -44,7 +44,7 @@ jobs:
         if: inputs.args
         uses: sonarsource/sonarqube-scan-action@master
         with:
-          projectBaseDir: ${{ format('/github/workspace{0}', inputs.workspace != '' && format('/{0}', inputs.workspace) || '' ) }}
+          projectBaseDir: ${{ inputs.workspace }}
           args: ${{ inputs.args }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
