@@ -29,7 +29,7 @@ on:
 
 jobs:
   version-checking:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
         already-present: ${{ steps.registry-check.outputs.already-present }}
     steps:

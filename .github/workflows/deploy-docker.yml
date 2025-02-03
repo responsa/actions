@@ -53,7 +53,7 @@ env:
 
 jobs:
   docker:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: Production
     defaults:
       run:

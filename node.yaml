@@ -30,7 +30,7 @@ jobs:
 
   prepare:
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.prepare.outputs.name }}
       version: ${{ steps.prepare.outputs.version }}
@@ -58,7 +58,7 @@ jobs:
 
   tag:
     needs: deploy
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:

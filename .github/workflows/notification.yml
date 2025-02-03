@@ -39,7 +39,7 @@ on:
 jobs:
   error:
     if: inputs.error
-    runs-on: ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Notify dedicated teams channel
         uses: TBCTSystems/ms-teams-notification@v1.3.1
@@ -52,7 +52,7 @@ jobs:
 
   warning:
     if: inputs.warning
-    runs-on: ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Notify dedicated teams channel
         uses: TBCTSystems/ms-teams-notification@v1.3.1
@@ -65,7 +65,7 @@ jobs:
 
   success:
     if: inputs.success
-    runs-on: ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Notify dedicated teams channel
         uses: TBCTSystems/ms-teams-notification@v1.3.1
