@@ -30,7 +30,7 @@ on:
         required: true
 jobs:
   node:
-    runs-on: self-hosted
+    runs-on: ubuntu
     defaults:
       run:
         working-directory: ${{ inputs.folder }}
