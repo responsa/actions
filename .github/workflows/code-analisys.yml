@@ -29,7 +29,7 @@ on:
         value: ${{ jobs.sonarqube.outputs.quality_ok }}
 jobs:
   sonarqube:
-    runs-on: self-hosted
+    runs-on: ubuntu
     outputs:
       quality_ok: ${{ (inputs.continue-on-error == true && steps.check_on_continue.outcome == 'success') ||  (inputs.continue-on-error == false && steps.check_on_break.outcome == 'success') }}
     steps:
