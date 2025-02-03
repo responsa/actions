@@ -59,7 +59,7 @@ env:
 
 jobs:
   docker:
-    runs-on: self-hosted
+    runs-on: ubuntu
     environment: Production
     defaults:
       run:
