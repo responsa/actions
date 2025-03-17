@@ -1,0 +1,146 @@
+name: deploy-docker-aws-secrets
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      name:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      folder:
+        required: false
+        type: string
+        default: './'
+      dockerfile:
+        required: false
+        type: string
+        default: 'Dockerfile'
+      additional-options:
+        required: false
+        type: string
+        default: ''
+      latest-tag:
+        required: false
+        type: string
+        default: 'latest'
+      project:
+        required: false
+        type: string
+        default: 'main'
+      aws-region:
+        required: false
+        type: string
+        default: 'eu-north-1'
+      repository:
+        required: false
+        type: string
+        default: 'responsa'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      RESPONSA_NPM_HOSTNAME:
+        required: true
+      RESPONSA_NPM_TOKEN:
+        required: true
+      RESPONSA_NPM_SCOPE:
+        required: true
+      UPDATE_WEBHOOK:
+        required: false
+      HEALTHCHECK_URI:
+        required: false
+      HEALTHCHECK_AGENT_NAME:
+        required: false
+      GIT_USERNAME:
+        required: false
+      GIT_TOKEN:
+        required: false
+env:
+  UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
+  HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    # Either use an existing environment or remove this line if not needed
+    # environment: production
+    defaults:
+      run:
+        working-directory: ${{ inputs.folder }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws-region }}
+      - name: Get Time
+        id: time
+        uses: nanzm/get-time-action@v2.0
+        with:
+          timeZone: 1
+          format: 'YYYY-MM-DDTHH:mm:ss.000Z'
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build & Tag docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ inputs.repository }}
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_TAG: ${{ inputs.latest-tag }}
+        run: >
+          docker build
+          -f ${{ inputs.dockerfile }}
+          --build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"
+          --build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"
+          --build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"
+          --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
+          --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
+          --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
+          --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
+          ${{ inputs.additional-options }}
+          -t $REGISTRY/$REPOSITORY/$IMAGE_NAME:$IMAGE_TAG .
+      - name: Docker push latest to Amazon ECR
+        id: docker-push-latest
+        if: ${{ inputs.latest-tag }}
+        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.latest-tag }}
+      - name: Docker tag version
+        if: ${{ inputs.version }}
+        run: docker image tag ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.latest-tag }} ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}
+      - name: Docker push version to Amazon ECR
+        continue-on-error: true
+        id: docker-push
+        if: ${{ inputs.version }}
+        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}
+      - name: Deploy Webhook
+        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
+        uses: muinmomin/webhook-action@v1.0.0
+        with:
+          url: ${{ env.UPDATE_WEBHOOK }}
+      - name: Healthcheck
+        id: healthcheck
+        if: ${{ success() && env.HEALTHCHECK_URI }}
+        uses: fjogeleit/http-request-action@master
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ inputs.sha }}", "retry": 3 }'
+      - name: Healthcheck
+        id: healthcheck_mq
+        if: ${{ success() && env.HEALTHCHECK_AGENT_NAME }}
+        uses: fjogeleit/http-request-action@master
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ inputs.sha }}", "retry": 3 }'
