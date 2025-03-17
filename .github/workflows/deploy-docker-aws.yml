@@ -126,7 +126,6 @@ jobs:
           REPO_URI=$(aws ecr describe-repositories --repository-names "$REPO_NAME" --query "repositories[0].repositoryUri" --output text)
           echo "Repository URI: $REPO_URI"
           echo "repo-uri=$REPO_URI" >> $GITHUB_OUTPUT
-      
       - name: Repository Details
         run: |
           echo "Repository URI: ${{ steps.create-repo.outputs.repo-uri }}"
