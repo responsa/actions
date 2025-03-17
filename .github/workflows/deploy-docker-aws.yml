@@ -36,10 +36,14 @@ on:
         required: false
         type: string
         default: 'eu-north-1'
-      repository:
-        required: false
-        type: string
-        default: 'responsa'
+      image-scanning:
+        description: 'Enable image scanning on push'
+        type: boolean
+        default: true
+      tag-immutability:
+        description: 'Make image tags immutable'
+        type: boolean
+        default: true
     secrets:
       ECR_AWS_ACCESS_KEY_ID:
         required: true
@@ -97,11 +101,40 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+      - name: Check if repository exists and create if needed
+        id: create-repo
+        run: |
+          # Set variables based on inputs
+          REPO_NAME="${{ inputs.name }}"
+          SCAN_ON_PUSH="${{ inputs.image-scanning }}"
+          TAG_IMMUTABILITY="${{ inputs.tag-immutability && 'IMMUTABLE' || 'MUTABLE' }}"
+          
+          # Check if repository exists
+          if aws ecr describe-repositories --repository-names "$REPO_NAME" 2>/dev/null; then
+            echo "Repository $REPO_NAME already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Creating repository $REPO_NAME"
+            aws ecr create-repository \
+              --repository-name "$REPO_NAME" \
+              --image-scanning-configuration scanOnPush=$SCAN_ON_PUSH \
+              --image-tag-mutability $TAG_IMMUTABILITY
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Get repository URI regardless of whether it was just created
+          REPO_URI=$(aws ecr describe-repositories --repository-names "$REPO_NAME" --query "repositories[0].repositoryUri" --output text)
+          echo "Repository URI: $REPO_URI"
+          echo "repo-uri=$REPO_URI" >> $GITHUB_OUTPUT
+      
+      - name: Repository Details
+        run: |
+          echo "Repository URI: ${{ steps.create-repo.outputs.repo-uri }}"
+          echo "Newly created: ${{ steps.create-repo.outputs.exists == 'false' }}"
       - name: Build & Tag docker image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ inputs.repository }}
-          IMAGE_NAME: ${{ inputs.name }}
+          REPOSITORY: ${{ inputs.name }}
           IMAGE_TAG: ${{ inputs.latest-tag }}
         run: >
           docker build
@@ -114,19 +147,19 @@ jobs:
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
           --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
           ${{ inputs.additional-options }}
-          -t $REGISTRY/$REPOSITORY/$IMAGE_NAME:$IMAGE_TAG .
+          -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
       - name: Docker push latest to Amazon ECR
         id: docker-push-latest
         if: ${{ inputs.latest-tag }}
-        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.latest-tag }}
+        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.name }}:${{ inputs.latest-tag }}
       - name: Docker tag version
         if: ${{ inputs.version }}
-        run: docker image tag ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.latest-tag }} ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}
+        run: docker image tag ${{ steps.login-ecr.outputs.registry }}/${{ inputs.name }}:${{ inputs.latest-tag }} ${{ steps.login-ecr.outputs.registry }}//${{ inputs.name }}:${{ inputs.version }}
       - name: Docker push version to Amazon ECR
         continue-on-error: true
         id: docker-push
         if: ${{ inputs.version }}
-        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}
+        run: docker image push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.name }}:${{ inputs.version }}
       - name: Deploy Webhook
         if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
