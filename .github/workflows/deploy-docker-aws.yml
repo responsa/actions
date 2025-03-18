@@ -152,6 +152,15 @@ jobs:
           --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
           ${{ inputs.additional-options }}
           -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+      - name: Delete previous latest image from ECR
+        id: delete-previous-latest
+        if: ${{ inputs.latest-tag }}
+        continue-on-error: true
+        run: |
+          aws ecr batch-delete-image \
+            --repository-name ${{ inputs.name }} \
+            --image-ids imageTag=${{ inputs.latest-tag }} \
+            || echo "No previous latest image found to delete"
       - name: Docker push latest to Amazon ECR
         id: docker-push-latest
         if: ${{ inputs.latest-tag }}
