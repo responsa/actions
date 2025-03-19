@@ -39,7 +39,6 @@ jobs:
         with:
           severity: warn
           text: '${{ inputs.error_message }}'
-          details: '${{ github.event.head_commit.message }}'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   warning:
@@ -51,7 +50,6 @@ jobs:
         with:
           severity: warn
           text: '${{ inputs.warning_message }}'
-          details: '${{ github.event.head_commit.message }}'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   success:
@@ -63,5 +61,4 @@ jobs:
         with:
           severity: info
           text: '${{ inputs.success_message }}'
-          details: '${{ github.event.head_commit.message }}'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
