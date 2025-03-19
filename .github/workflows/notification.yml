@@ -28,9 +28,6 @@ on:
         type: string
         required: false
         default: warning ƪ(‾ε‾“)ʃ
-    secrets:
-      DISCORD_WEBHOOK:
-        required: true
 
 jobs:
   error:
@@ -43,7 +40,7 @@ jobs:
           severity: warn
           text: '${{ inputs.error_message }}'
           details: '${{ github.event.head_commit.message }}'
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   warning:
     if: inputs.warning
@@ -55,7 +52,7 @@ jobs:
           severity: warn
           text: '${{ inputs.warning_message }}'
           details: '${{ github.event.head_commit.message }}'
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   success:
     if: inputs.success
@@ -67,4 +64,4 @@ jobs:
           severity: info
           text: '${{ inputs.success_message }}'
           details: '${{ github.event.head_commit.message }}'
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
