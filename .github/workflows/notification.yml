@@ -38,7 +38,7 @@ jobs:
         uses: rjstone/discord-webhook-notify@v1
         with:
           severity: warn
-          text: '${{ inputs.error_message }}'
+          text: '${{ inputs.repositoryName }}: ${inputs.error_message }'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   warning:
@@ -49,7 +49,7 @@ jobs:
         uses: rjstone/discord-webhook-notify@v1
         with:
           severity: warn
-          text: '${{ inputs.warning_message }}'
+          text: '${{ inputs.repositoryName }}: ${inputs.warning_message }'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
   success:
@@ -60,5 +60,5 @@ jobs:
         uses: rjstone/discord-webhook-notify@v1
         with:
           severity: info
-          text: '${{ inputs.success_message }}'
+          text: '${{ inputs.repositoryName }}: ${inputs.success_message }'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
