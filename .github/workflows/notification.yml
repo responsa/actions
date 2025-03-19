@@ -29,11 +29,7 @@ on:
         required: false
         default: warning ƪ(‾ε‾“)ʃ
     secrets:
-      MS_TEAMS_WEBHOOK_SUCCESS_URI:
-        required: true
-      MS_TEAMS_WEBHOOK_FAILURE_URI:
-        required: true
-      MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI:
+      DISCORD_WEBHOOK:
         required: true
 
 jobs:
@@ -41,37 +37,34 @@ jobs:
     if: inputs.error
     runs-on: ubuntu-latest
     steps:
-      - name: Notify dedicated teams channel
-        uses: TBCTSystems/ms-teams-notification@v1.3.1
+      - name: Dicord Error
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_FAILURE_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.error_message }} - ${{ github.event.head_commit.message }}"
-          notification-color: dc3545
-          timezone: Europe/Rome
+          severity: warn
+          text: '${{ inputs.error_message }}'
+          details: '${{ github.event.head_commit.message }}'
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   warning:
     if: inputs.warning
     runs-on: ubuntu-latest
     steps:
-      - name: Notify dedicated teams channel
-        uses: TBCTSystems/ms-teams-notification@v1.3.1
+      - name: Dicord Warning
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_NOT_ENOUGH_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.warning_message }} - ${{ github.event.head_commit.message }}"
-          notification-color: ffc107
-          timezone: Europe/Rome
+          severity: warn
+          text: '${{ inputs.warning_message }}'
+          details: '${{ github.event.head_commit.message }}'
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   success:
     if: inputs.success
     runs-on: ubuntu-latest
     steps:
-      - name: Notify dedicated teams channel
-        uses: TBCTSystems/ms-teams-notification@v1.3.1
+      - name: Discord Success
+        uses: rjstone/discord-webhook-notify@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_SUCCESS_URI }}
-          notification-summary: "${{ inputs.repositoryName }}: ${{ inputs.success_message }} - ${{ github.event.head_commit.message }}"
-          notification-color: 28a745
-          timezone: Europe/Rome
+          severity: info
+          text: '${{ inputs.success_message }}'
+          details: '${{ github.event.head_commit.message }}'
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
