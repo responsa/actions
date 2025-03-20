@@ -37,7 +37,7 @@ jobs:
       - name: Dicord Error
         uses: rjstone/discord-webhook-notify@v1
         with:
-          severity: warn
+          severity: error
           text: '🔴 **${{ inputs.repositoryName }}** ${{ inputs.error_message }}'
           webhookUrl: ${{ vars.DISCORD_WEBHOOK }}
 
