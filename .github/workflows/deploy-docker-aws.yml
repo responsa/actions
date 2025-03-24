@@ -139,16 +139,14 @@ jobs:
           echo "Repository URI: ${{ steps.create-repo.outputs.repo-uri }}"
           echo "Newly created: ${{ steps.create-repo.outputs.exists == 'false' }}"
           echo "::endgroup::"
-      - name: Prepare secrets
-        run: |
-          export NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"
-          export NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"
-          export NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"
       - name: Build & Tag docker image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_NAME: ${{ inputs.name }}
           IMAGE_TAG: ${{ inputs.latest-tag }}
+          NPM_HOSTNAME: "${{ secrets.RESPONSA_NPM_HOSTNAME }}"
+          NPM_SCOPE: "${{ secrets.RESPONSA_NPM_SCOPE }}"
+          NPM_TOKEN: "${{ secrets.RESPONSA_NPM_TOKEN }}"
         run: >
           echo "NPM_HOSTNAME: $NPM_HOSTNAME" && ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
           -f ${{ inputs.dockerfile }}
