@@ -139,16 +139,18 @@ jobs:
           echo "Repository URI: ${{ steps.create-repo.outputs.repo-uri }}"
           echo "Newly created: ${{ steps.create-repo.outputs.exists == 'false' }}"
           echo "::endgroup::"
-      - name: Build & Tag docker image
-        env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_NAME: ${{ inputs.name }}
-          IMAGE_TAG: ${{ inputs.latest-tag }}
+      - name: Prepare secrets
         run: |
           apt-get install docker-buildx-plugin
           echo -n "${{ secrets.RESPONSA_NPM_HOSTNAME }}" > npm_host.txt
           echo -n "${{ secrets.RESPONSA_NPM_SCOPE }}" > npm_scope.txt
           echo -n "${{ secrets.RESPONSA_NPM_TOKEN }}" > npm_token.txt
+      - name: Build & Tag docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_NAME: ${{ inputs.name }}
+          IMAGE_TAG: ${{ inputs.latest-tag }}
+        run: >
           ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
           -f ${{ inputs.dockerfile }}
           ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '--secret id=npm_host,src=npm_host.txt' }}
