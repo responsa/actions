@@ -51,6 +51,12 @@ on:
         required: false
       GIT_TOKEN:
         required: false
+      RESPONSA_NPM_HOSTNAME:
+        required: false
+      RESPONSA_NPM_TOKEN:
+        required: false
+      RESPONSA_NPM_SCOPE:
+        required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
@@ -83,6 +89,9 @@ jobs:
         run: >
           ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
           -f ${{ inputs.dockerfile }}
+          ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '' }}
+          ${{ inputs.buildkit != true && '--build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"' || '' }}
+          ${{ inputs.buildkit != true && '--build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"' || '' }}
           --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
           --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
