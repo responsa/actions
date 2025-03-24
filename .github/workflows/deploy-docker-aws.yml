@@ -141,7 +141,6 @@ jobs:
           echo "::endgroup::"
       - name: Prepare secrets
         run: |
-          apt-get install docker-buildx-plugin
           echo -n "${{ secrets.RESPONSA_NPM_HOSTNAME }}" > npm_host.txt
           echo -n "${{ secrets.RESPONSA_NPM_SCOPE }}" > npm_scope.txt
           echo -n "${{ secrets.RESPONSA_NPM_TOKEN }}" > npm_token.txt
