@@ -145,11 +145,12 @@ jobs:
           IMAGE_NAME: ${{ inputs.name }}
           IMAGE_TAG: ${{ inputs.latest-tag }}
         run: |
+          apt-get install docker-buildx-plugin
           echo -n "${{ secrets.RESPONSA_NPM_HOSTNAME }}" > npm_host.txt
           echo -n "${{ secrets.RESPONSA_NPM_SCOPE }}" > npm_scope.txt
           echo -n "${{ secrets.RESPONSA_NPM_TOKEN }}" > npm_token.txt
           ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
-          -f ${{ inputs.dockerfile }} .
+          -f ${{ inputs.dockerfile }}
           ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '--secret id=npm_host,src=npm_host.txt' }}
           ${{ inputs.buildkit != true && '--build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"' || '--secret id=npm_token,src=npm_token.txt' }}
           ${{ inputs.buildkit != true && '--build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"' || '--secret id=npm_scope,src=npm_scope.txt' }}
@@ -158,7 +159,7 @@ jobs:
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
           --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
           ${{ inputs.additional-options }}
-          -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
       - name: Delete previous latest image from ECR
         id: delete-previous-latest
         if: ${{ inputs.latest-tag }}
