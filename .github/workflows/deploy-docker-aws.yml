@@ -158,7 +158,7 @@ jobs:
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
           --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
           ${{ inputs.additional-options }}
-          -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+          -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
       - name: Delete previous latest image from ECR
         id: delete-previous-latest
         if: ${{ inputs.latest-tag }}
