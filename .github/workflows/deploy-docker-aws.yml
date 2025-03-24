@@ -149,7 +149,7 @@ jobs:
           echo -n "${{ secrets.RESPONSA_NPM_SCOPE }}" > npm_scope.txt
           echo -n "${{ secrets.RESPONSA_NPM_TOKEN }}" > npm_token.txt
           ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
-          -f ${{ inputs.dockerfile }}
+          -f ${{ inputs.dockerfile }} .
           ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '--secret id=npm_host,src=npm_host.txt' }}
           ${{ inputs.buildkit != true && '--build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"' || '--secret id=npm_token,src=npm_token.txt' }}
           ${{ inputs.buildkit != true && '--build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"' || '--secret id=npm_scope,src=npm_scope.txt' }}
