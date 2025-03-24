@@ -150,7 +150,7 @@ jobs:
           IMAGE_NAME: ${{ inputs.name }}
           IMAGE_TAG: ${{ inputs.latest-tag }}
         run: >
-          ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
+          echo "NPM_HOSTNAME: $NPM_HOSTNAME" && ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
           -f ${{ inputs.dockerfile }}
           ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '--secret type=env,id=npm_hostname,env=NPM_HOSTNAME' }}
           ${{ inputs.buildkit != true && '--build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"' || '--secret type=env,id=npm_token,env=NPM_TOKEN' }}
