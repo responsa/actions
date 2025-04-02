@@ -88,17 +88,17 @@ jobs:
           NPM_SCOPE: "${{ secrets.RESPONSA_NPM_SCOPE }}"
           NPM_TOKEN: "${{ secrets.RESPONSA_NPM_TOKEN }}"
         run: |
-          DOCKER_BUILDKIT=1 docker build
-          --platform linux/amd64,linux/arm64
-          -f ${{ inputs.dockerfile }}
-          --secret type=env,id=npm_hostname,env=NPM_HOSTNAME
-          --secret type=env,id=npm_token,env=NPM_TOKEN
-          --secret type=env,id=npm_scope,env=NPM_SCOPE
-          --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
-          --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
-          --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
-          --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}"
-          ${{ inputs.additional-options }}
+          docker buildx build
+          --platform linux/amd64,linux/arm64 \
+          -f ${{ inputs.dockerfile }} \
+          --secret type=env,id=npm_hostname,env=NPM_HOSTNAME \
+          --secret type=env,id=npm_token,env=NPM_TOKEN \
+          --secret type=env,id=npm_scope,env=NPM_SCOPE \
+          --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
+          --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
+          --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
+          --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
+          ${{ inputs.additional-options != '' && inputs.additional-options || '' }} \
           -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} .
       - name: Docker push latest
         id: docker-push-latest
