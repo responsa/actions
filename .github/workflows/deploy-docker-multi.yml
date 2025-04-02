@@ -32,6 +32,10 @@ on:
         required: false
         type: string
         default: 'main'
+      platform:
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
     secrets:
       RESPONSA_REGISTRY_USERNAME:
         required: true
@@ -88,9 +92,15 @@ jobs:
           NPM_SCOPE: "${{ secrets.RESPONSA_NPM_SCOPE }}"
           NPM_TOKEN: "${{ secrets.RESPONSA_NPM_TOKEN }}"
         run: |
+          TAGS="-t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}"
+    
+          if [ -n "${{ inputs.version }}" ]; then
+            TAGS="$TAGS -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}"
+          fi
+
           if [ -n "${{ inputs.additional-options }}" ]; then
             docker buildx build \
-            --platform linux/amd64,linux/arm64 \
+            --platform ${{ inputs.platform }} \
             -f ${{ inputs.dockerfile }} \
             --secret type=env,id=npm_hostname,env=NPM_HOSTNAME \
             --secret type=env,id=npm_token,env=NPM_TOKEN \
@@ -100,10 +110,11 @@ jobs:
             --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
             --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
             ${{ inputs.additional-options }} \
-            -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} .
+            --push \
+            $TAGS .
           else
             docker buildx build \
-            --platform linux/amd64,linux/arm64 \
+            --platform ${{ inputs.platform }} \
             -f ${{ inputs.dockerfile }} \
             --secret type=env,id=npm_hostname,env=NPM_HOSTNAME \
             --secret type=env,id=npm_token,env=NPM_TOKEN \
@@ -112,20 +123,9 @@ jobs:
             --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
             --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
             --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
-            -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} .
+            --push \
+            $TAGS .
           fi      
-      - name: Docker push latest
-        id: docker-push-latest
-        if: ${{ inputs.latest-tag }}
-        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}
-      - name: Docker tag version
-        if: ${{ inputs.version }}
-        run: docker image tag registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }} registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
-      - name: Docker push version
-        continue-on-error: true
-        id: docker-push
-        if: ${{ inputs.version }}
-        run: docker image push registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}
       - name: Deploy Webhook
         if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
         uses: muinmomin/webhook-action@v1.0.0
