@@ -57,7 +57,7 @@ on:
         required: false
       RESPONSA_NPM_SCOPE:
         required: false
-      RESPONSA_CORE_REPOSITORY_SSH_PRIVATE_KEY:
+      CORE_REPOSITORY_SSH_PRIVATE_KEY:
         required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
