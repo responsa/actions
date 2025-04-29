@@ -1,0 +1,149 @@
+name: Build and deploy Docker image for both AMD64 and ARM64 architectures
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      name:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      folder:
+        required: false
+        type: string
+        default: './'
+      dockerfile:
+        required: false
+        type: string
+        default: 'Dockerfile'
+      additional-options:
+        required: false
+        type: string
+        default: ''
+      additional-options-presence:
+        required: false
+        type: string
+        default: 'false'
+      latest-tag:
+        required: false
+        type: string
+        default: 'latest'
+      project:
+        required: false
+        type: string
+        default: 'main'
+      platform:
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
+    secrets:
+      RESPONSA_REGISTRY_USERNAME:
+        required: true
+      RESPONSA_REGISTRY_PASSWORD:
+        required: true
+      UPDATE_WEBHOOK:
+        required: false
+      HEALTHCHECK_URI:
+        required: false
+      HEALTHCHECK_AGENT_NAME:
+        required: false
+      GIT_USERNAME:
+        required: false
+      GIT_TOKEN:
+        required: false
+      RESPONSA_NPM_HOSTNAME:
+        required: false
+      RESPONSA_NPM_TOKEN:
+        required: false
+      RESPONSA_NPM_SCOPE:
+        required: false
+      CORE_REPOSITORY_SSH_PRIVATE_KEY:
+        required: false
+env:
+  UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
+  HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.folder }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Responsa Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.goresponsa.com
+          username: ${{ secrets.RESPONSA_REGISTRY_USERNAME }}
+          password: ${{ secrets.RESPONSA_REGISTRY_PASSWORD }}
+      - name: Get Time
+        id: time
+        uses: nanzm/get-time-action@v2.0
+        with:
+          timeZone: 1
+          format: 'YYYY-MM-DDTHH:mm:ss.000Z'
+      - name: Docker build
+        env:
+          CORE_REPOSITORY_SSH_PRIVATE_KEY: "${{secrets.CORE_REPOSITORY_SSH_PRIVATE_KEY}}"
+        run: |
+          TAGS="-t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}"
+    
+          if [ -n "${{ inputs.version }}" ]; then
+            TAGS="$TAGS -t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.version }}"
+          fi
+
+          if [ -n "${{ inputs.additional-options-presence }}" = "true" ]; then
+            docker buildx build \
+            --platform ${{ inputs.platform }} \
+            -f ${{ inputs.dockerfile }} \
+            --secret type=env,id=core_repository_ssh_private_key,env=CORE_REPOSITORY_SSH_PRIVATE_KEY \
+            --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
+            --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
+            --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
+            --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
+            ${{ inputs.additional-options }} \
+            --push \
+            $TAGS .
+          else
+            docker buildx build \
+            --platform ${{ inputs.platform }} \
+            -f ${{ inputs.dockerfile }} \
+            --secret type=env,id=core_repository_ssh_private_key,env=CORE_REPOSITORY_SSH_PRIVATE_KEY \
+            --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
+            --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
+            --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
+            --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
+            --push \
+            $TAGS .
+          fi      
+      - name: Deploy Webhook
+        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
+        uses: muinmomin/webhook-action@v1.0.0
+        with:
+          url: ${{ env.UPDATE_WEBHOOK }}
+      - name: Healthcheck
+        id: healthcheck
+        if: ${{ success() && env.HEALTHCHECK_URI }}
+        uses: fjogeleit/http-request-action@master
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ inputs.sha }}", "retry": 3 }'
+      - name: Healthcheck
+        id: healthcheck_mq
+        if: ${{ success() && env.HEALTHCHECK_AGENT_NAME }}
+        uses: fjogeleit/http-request-action@master
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ inputs.sha }}", "retry": 3 }'
