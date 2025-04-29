@@ -63,6 +63,8 @@ on:
         required: false
       CORE_REPOSITORY_SSH_PRIVATE_KEY:
         required: false
+      CORE_REPOSITORY_SSH_USER:
+        required: false
 env:
   UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
   HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
@@ -95,6 +97,7 @@ jobs:
       - name: Docker build
         env:
           CORE_REPOSITORY_SSH_PRIVATE_KEY: "${{secrets.CORE_REPOSITORY_SSH_PRIVATE_KEY}}"
+          CORE_REPOSITORY_SSH_USER: "${{secrets.CORE_REPOSITORY_SSH_USER}}"
         run: |
           TAGS="-t registry.goresponsa.com/${{ inputs.project }}/${{ inputs.name }}:${{ inputs.latest-tag }}"
     
@@ -107,6 +110,7 @@ jobs:
             --platform ${{ inputs.platform }} \
             -f ${{ inputs.dockerfile }} \
             --secret type=env,id=core_repository_ssh_private_key,env=CORE_REPOSITORY_SSH_PRIVATE_KEY \
+            --secret type=env,id=core_repository_ssh_user,env=CORE_REPOSITORY_SSH_USER \
             --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
             --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
             --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
@@ -119,6 +123,7 @@ jobs:
             --platform ${{ inputs.platform }} \
             -f ${{ inputs.dockerfile }} \
             --secret type=env,id=core_repository_ssh_private_key,env=CORE_REPOSITORY_SSH_PRIVATE_KEY \
+            --secret type=env,id=core_repository_ssh_user,env=CORE_REPOSITORY_SSH_USER \
             --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
             --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
             --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
