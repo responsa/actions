@@ -37,6 +37,10 @@ on:
         type: string
         default: 'linux/amd64,linux/arm64'
     secrets:
+      RESPONSA_REGISTRY_USERNAME:
+        required: true
+      RESPONSA_REGISTRY_PASSWORD:
+        required: true
       UPDATE_WEBHOOK:
         required: false
       HEALTHCHECK_URI:
