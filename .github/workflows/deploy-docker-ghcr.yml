@@ -1,158 +1,212 @@
-name: Build and deploy Docker image for both AMD64 and ARM64 architectures
+name: Build and deploy Docker image to GHCR
+
+# Reusable workflow per build e push Docker su GitHub Container Registry (ghcr.io)
+# - Estrae automaticamente la version da package.json
+# - Le versioni sono IMMUTABILI (non sovrascrive se già esistono)
+# - Solo 'latest' e i tag branch vengono sovrascritti
 
 on:
   workflow_call:
     inputs:
-      sha:
-        required: true
-        type: string
-      name:
-        required: true
-        type: string
-      version:
-        required: true
-        type: string
       folder:
+        description: 'Working directory'
         required: false
         type: string
         default: './'
       dockerfile:
+        description: 'Path to Dockerfile'
         required: false
         type: string
         default: 'Dockerfile'
-      additional-options:
+      platforms:
+        description: 'Target platforms for Docker build'
+        required: false
+        type: string
+        default: 'linux/amd64'
+      additional_build_args:
+        description: 'Additional build arguments (multiline KEY=value)'
         required: false
         type: string
         default: ''
-      additional-options-presence:
+      image_name:
+        description: 'Custom image name (default: github.repository)'
         required: false
         type: string
-        default: 'false'
-      latest-tag:
-        required: false
-        type: string
-        default: 'latest'
-      platform:
-        required: false
-        type: string
-        default: 'linux/amd64,linux/arm64'
-    secrets:
-      RESPONSA_REGISTRY_USERNAME:
-        required: true
-      RESPONSA_REGISTRY_PASSWORD:
-        required: true
-      UPDATE_WEBHOOK:
-        required: false
-      HEALTHCHECK_URI:
-        required: false
-      HEALTHCHECK_AGENT_NAME:
-        required: false
-      GIT_USERNAME:
-        required: false
-      GIT_TOKEN:
-        required: false
-      RESPONSA_NPM_HOSTNAME:
-        required: false
-      RESPONSA_NPM_TOKEN:
-        required: false
-      RESPONSA_NPM_SCOPE:
-        required: false
-      CORE_REPOSITORY_SSH_PRIVATE_KEY:
-        required: false
+        default: ''
+
+    outputs:
+      version:
+        description: 'Package version from package.json'
+        value: ${{ jobs.build-and-push.outputs.version }}
+      version_exists:
+        description: 'Whether the version tag already existed'
+        value: ${{ jobs.build-and-push.outputs.version_exists }}
+      tags:
+        description: 'Docker image tags that were pushed'
+        value: ${{ jobs.build-and-push.outputs.tags }}
+      digest:
+        description: 'Docker image digest'
+        value: ${{ jobs.build-and-push.outputs.digest }}
+
 env:
-  UPDATE_WEBHOOK: ${{secrets.UPDATE_WEBHOOK}}
-  HEALTHCHECK_URI: ${{secrets.HEALTHCHECK_URI}}
+  REGISTRY: ghcr.io
 
 jobs:
-  docker:
+  build-and-push:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      version_exists: ${{ steps.check-version.outputs.exists }}
+      tags: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build-push.outputs.digest }}
+
     defaults:
       run:
         working-directory: ${{ inputs.folder }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to Responsa Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get Time
-        id: time
-        uses: nanzm/get-time-action@v2.0
-        with:
-          timeZone: 1
-          format: 'YYYY-MM-DDTHH:mm:ss.000Z'
-      - name: Docker build
-        env:
-          NPM_HOSTNAME: "${{ secrets.RESPONSA_NPM_HOSTNAME }}"
-          NPM_SCOPE: "${{ secrets.RESPONSA_NPM_SCOPE }}"
-          NPM_TOKEN: "${{ secrets.RESPONSA_NPM_TOKEN }}"
-        run: |
-          TAGS="-t ghcr.io/responsa/${{ inputs.name }}:${{ inputs.latest-tag }}"
 
-          if [ -n "${{ inputs.version }}" ]; then
-            TAGS="$TAGS -t ghcr.io/responsa/${{ inputs.name }}:${{ inputs.version }}"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract package.json metadata
+        id: package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "name=$(node -p "require('./package.json').name || '${{ github.event.repository.name }}'")" >> $GITHUB_OUTPUT
+            echo "version=$(node -p "require('./package.json').version || '0.0.0'")" >> $GITHUB_OUTPUT
+            echo "description=$(node -p "require('./package.json').description || ''")" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+            echo "version=0.0.0" >> $GITHUB_OUTPUT
+            echo "description=" >> $GITHUB_OUTPUT
           fi
 
-          if [ -n "${{ inputs.additional-options-presence }}" = "true" ]; then
-            docker buildx build \
-            --platform ${{ inputs.platform }} \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            -f ${{ inputs.dockerfile }} \
-            --secret type=env,id=npm_hostname,env=NPM_HOSTNAME \
-            --secret type=env,id=npm_token,env=NPM_TOKEN \
-            --secret type=env,id=npm_scope,env=NPM_SCOPE \
-            --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
-            --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
-            --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
-            --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
-            ${{ inputs.additional-options }} \
-            --push \
-            $TAGS .
+      - name: Determine image name
+        id: image-name
+        run: |
+          if [ -n "${{ inputs.image_name }}" ]; then
+            echo "name=${{ inputs.image_name }}" >> $GITHUB_OUTPUT
+            echo "full=${{ env.REGISTRY }}/${{ inputs.image_name }}" >> $GITHUB_OUTPUT
           else
-            docker buildx build \
-            --platform ${{ inputs.platform }} \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            -f ${{ inputs.dockerfile }} \
-            --secret type=env,id=npm_hostname,env=NPM_HOSTNAME \
-            --secret type=env,id=npm_token,env=NPM_TOKEN \
-            --secret type=env,id=npm_scope,env=NPM_SCOPE \
-            --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}" \
-            --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}" \
-            --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}" \
-            --build-arg GIT_TOKEN="${{ secrets.GIT_TOKEN }}" \
-            --push \
-            $TAGS .
-          fi      
-      - name: Deploy Webhook
-        if: ${{ always() && env.UPDATE_WEBHOOK && steps.docker-push-latest.conclusion == 'success' }}
-        uses: muinmomin/webhook-action@v1.0.0
+            echo "name=${{ github.repository }}" >> $GITHUB_OUTPUT
+            echo "full=${{ env.REGISTRY }}/${{ github.repository }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
         with:
-          url: ${{ env.UPDATE_WEBHOOK }}
-      - name: Healthcheck
-        id: healthcheck
-        if: ${{ success() && env.HEALTHCHECK_URI }}
-        uses: fjogeleit/http-request-action@master
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if version tag already exists
+        id: check-version
+        if: github.event_name != 'pull_request'
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          IMAGE="${{ steps.image-name.outputs.full }}"
+          
+          echo "Checking if $IMAGE:$VERSION exists..."
+          
+          # Try to pull the manifest (without downloading the image)
+          if docker manifest inspect "$IMAGE:$VERSION" > /dev/null 2>&1; then
+            echo "⚠️ Version $VERSION already exists - will be skipped (immutable)"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Version $VERSION does not exist - will be pushed"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        if: contains(inputs.platforms, 'arm')
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dynamic tags
+        id: tags
+        run: |
+          IMAGE="${{ steps.image-name.outputs.full }}"
+          VERSION="${{ steps.package.outputs.version }}"
+          VERSION_EXISTS="${{ steps.check-version.outputs.exists }}"
+          SHA="${{ github.sha }}"
+          BRANCH="${{ github.ref_name }}"
+          
+          # Start with mutable tags (always pushed)
+          TAGS="$IMAGE:$BRANCH"
+          TAGS="$TAGS,$IMAGE:sha-${SHA:0:7}"
+          
+          # Add 'latest' only for default branch
+          if [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            TAGS="$TAGS,$IMAGE:latest"
+          fi
+          
+          # Add version tag ONLY if it doesn't exist (immutable)
+          if [ "$VERSION_EXISTS" != "true" ] && [ "$VERSION" != "0.0.0" ]; then
+            TAGS="$TAGS,$IMAGE:$VERSION"
+            echo "📦 Version $VERSION will be tagged"
+          else
+            echo "⏭️ Version $VERSION skipped (already exists or invalid)"
+          fi
+          
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "Tags to push: $TAGS"
+
+      - name: Extract metadata for labels
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          url: 'https://node-red.internals.goresponsa.com/checkUrl'
-          method: 'POST'
-          data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ inputs.sha }}", "retry": 3 }'
-      - name: Healthcheck
-        id: healthcheck_mq
-        if: ${{ success() && env.HEALTHCHECK_AGENT_NAME }}
-        uses: fjogeleit/http-request-action@master
+          images: ${{ steps.image-name.outputs.full }}
+          tags: |
+            type=raw,value=placeholder
+          labels: |
+            org.opencontainers.image.title=${{ steps.package.outputs.name }}
+            org.opencontainers.image.description=${{ steps.package.outputs.description }}
+            org.opencontainers.image.version=${{ steps.package.outputs.version }}
+            org.opencontainers.image.vendor=Responsa
+
+      - name: Build and push Docker image
+        id: build-push
+        uses: docker/build-push-action@v5
         with:
-          url: 'https://node-red.internals.goresponsa.com/checkUrl'
-          method: 'POST'
-          data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ inputs.sha }}", "retry": 3 }'
+          context: ${{ inputs.folder }}
+          file: ${{ inputs.folder }}/${{ inputs.dockerfile }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.package.outputs.version }}
+            ${{ inputs.additional_build_args }}
+
+      - name: Create summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Package:** ${{ steps.package.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "🔖 **Version:** ${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
+            echo "⚠️ **Note:** Version tag already existed (immutable) - only latest/branch tags updated" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏷️ Tags pushed" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ steps.image-name.outputs.full }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
