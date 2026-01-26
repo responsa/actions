@@ -1,13 +1,23 @@
 name: Build and deploy Docker image to GHCR
 
 # Reusable workflow per build e push Docker su GitHub Container Registry (ghcr.io)
-# - Estrae automaticamente la version da package.json
+# - Accetta name e version come input, oppure li estrae da package.json
 # - Le versioni sono IMMUTABILI (non sovrascrive se già esistono)
 # - Solo 'latest' e i tag branch vengono sovrascritti
 
 on:
   workflow_call:
     inputs:
+      name:
+        description: 'Package/image name (default: from package.json or repository name)'
+        required: false
+        type: string
+        default: ''
+      version:
+        description: 'Version tag (default: from package.json)'
+        required: false
+        type: string
+        default: ''
       folder:
         description: 'Working directory'
         required: false
@@ -29,14 +39,14 @@ on:
         type: string
         default: ''
       image_name:
-        description: 'Custom image name (default: github.repository)'
+        description: 'Custom full image name for registry (default: github.repository)'
         required: false
         type: string
         default: ''
 
     outputs:
       version:
-        description: 'Package version from package.json'
+        description: 'Version used for tagging'
         value: ${{ jobs.build-and-push.outputs.version }}
       version_exists:
         description: 'Whether the version tag already existed'
@@ -60,9 +70,9 @@ jobs:
       packages: write
     
     outputs:
-      version: ${{ steps.package.outputs.version }}
+      version: ${{ steps.resolve.outputs.version }}
       version_exists: ${{ steps.check-version.outputs.exists }}
-      tags: ${{ steps.meta.outputs.tags }}
+      tags: ${{ steps.tags.outputs.tags }}
       digest: ${{ steps.build-push.outputs.digest }}
 
     defaults:
@@ -85,6 +95,24 @@ jobs:
             echo "version=0.0.0" >> $GITHUB_OUTPUT
             echo "description=" >> $GITHUB_OUTPUT
           fi
+
+      - name: Resolve name and version
+        id: resolve
+        run: |
+          # Use input if provided, otherwise fallback to package.json
+          if [ -n "${{ inputs.name }}" ]; then
+            echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ steps.package.outputs.name }}" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ steps.package.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "description=${{ steps.package.outputs.description }}" >> $GITHUB_OUTPUT
 
       - name: Determine image name
         id: image-name
@@ -109,7 +137,7 @@ jobs:
         id: check-version
         if: github.event_name != 'pull_request'
         run: |
-          VERSION="${{ steps.package.outputs.version }}"
+          VERSION="${{ steps.resolve.outputs.version }}"
           IMAGE="${{ steps.image-name.outputs.full }}"
           
           echo "Checking if $IMAGE:$VERSION exists..."
@@ -134,7 +162,7 @@ jobs:
         id: tags
         run: |
           IMAGE="${{ steps.image-name.outputs.full }}"
-          VERSION="${{ steps.package.outputs.version }}"
+          VERSION="${{ steps.resolve.outputs.version }}"
           VERSION_EXISTS="${{ steps.check-version.outputs.exists }}"
           SHA="${{ github.sha }}"
           BRANCH="${{ github.ref_name }}"
@@ -167,9 +195,9 @@ jobs:
           tags: |
             type=raw,value=placeholder
           labels: |
-            org.opencontainers.image.title=${{ steps.package.outputs.name }}
-            org.opencontainers.image.description=${{ steps.package.outputs.description }}
-            org.opencontainers.image.version=${{ steps.package.outputs.version }}
+            org.opencontainers.image.title=${{ steps.resolve.outputs.name }}
+            org.opencontainers.image.description=${{ steps.resolve.outputs.description }}
+            org.opencontainers.image.version=${{ steps.resolve.outputs.version }}
             org.opencontainers.image.vendor=Responsa
 
       - name: Build and push Docker image
@@ -187,7 +215,7 @@ jobs:
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
-            VERSION=${{ steps.package.outputs.version }}
+            VERSION=${{ steps.resolve.outputs.version }}
             ${{ inputs.additional_build_args }}
 
       - name: Create summary
@@ -195,8 +223,8 @@ jobs:
         run: |
           echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Package:** ${{ steps.package.outputs.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "🔖 **Version:** ${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Package:** ${{ steps.resolve.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "🔖 **Version:** ${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
             echo "⚠️ **Note:** Version tag already existed (immutable) - only latest/branch tags updated" >> $GITHUB_STEP_SUMMARY
           fi
