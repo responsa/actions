@@ -4,6 +4,8 @@ name: Build and deploy Docker image to GHCR
 # - Accetta name e version come input, oppure li estrae da package.json
 # - Le versioni sono IMMUTABILI (non sovrascrive se già esistono)
 # - Solo 'latest' e i tag branch vengono sovrascritti
+# - Supporta secrets NPM e Git per build con dipendenze private
+# - Compatibile con i build args del vecchio workflow deploy-docker-multi.yml
 
 on:
   workflow_call:
@@ -43,14 +45,56 @@ on:
         required: false
         type: string
         default: ''
+      latest_tag:
+        description: 'Tag to use instead of latest (default: latest)'
+        required: false
+        type: string
+        default: 'latest'
+      use_legacy_build_args:
+        description: 'Use legacy build args (CI_PUTS_HERE_*) for backwards compatibility'
+        required: false
+        type: boolean
+        default: false
+
+    secrets:
+      NPM_HOSTNAME:
+        description: 'NPM registry hostname for private packages'
+        required: false
+      NPM_TOKEN:
+        description: 'NPM authentication token'
+        required: false
+      NPM_SCOPE:
+        description: 'NPM scope for private packages'
+        required: false
+      GIT_USERNAME:
+        description: 'Git username for private repositories'
+        required: false
+      GIT_TOKEN:
+        description: 'Git token for private repositories'
+        required: false
+      UPDATE_WEBHOOK:
+        description: 'Webhook URL to call after successful deploy'
+        required: false
+      HEALTHCHECK_URI:
+        description: 'URI for healthcheck after deploy'
+        required: false
+      HEALTHCHECK_AGENT_NAME:
+        description: 'Agent name for MQ-based healthcheck'
+        required: false
 
     outputs:
       version:
         description: 'Version used for tagging'
         value: ${{ jobs.build-and-push.outputs.version }}
+      version_valid:
+        description: 'Whether the version is a valid semver'
+        value: ${{ jobs.build-and-push.outputs.version_valid }}
       version_exists:
         description: 'Whether the version tag already existed'
         value: ${{ jobs.build-and-push.outputs.version_exists }}
+      is_prerelease:
+        description: 'Whether the version is a prerelease (alpha, beta, rc, etc.)'
+        value: ${{ jobs.build-and-push.outputs.is_prerelease }}
       tags:
         description: 'Docker image tags that were pushed'
         value: ${{ jobs.build-and-push.outputs.tags }}
@@ -69,9 +113,16 @@ jobs:
       contents: read
       packages: write
     
+    env:
+      UPDATE_WEBHOOK: ${{ secrets.UPDATE_WEBHOOK }}
+      HEALTHCHECK_URI: ${{ secrets.HEALTHCHECK_URI }}
+      HEALTHCHECK_AGENT_NAME: ${{ secrets.HEALTHCHECK_AGENT_NAME }}
+
     outputs:
       version: ${{ steps.resolve.outputs.version }}
+      version_valid: ${{ steps.resolve.outputs.version_valid }}
       version_exists: ${{ steps.check-version.outputs.exists }}
+      is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
       tags: ${{ steps.tags.outputs.tags }}
       digest: ${{ steps.build-push.outputs.digest }}
 
@@ -87,12 +138,18 @@ jobs:
         id: package
         run: |
           if [ -f "package.json" ]; then
-            echo "name=$(node -p "require('./package.json').name || '${{ github.event.repository.name }}'")" >> $GITHUB_OUTPUT
-            echo "version=$(node -p "require('./package.json').version || '0.0.0'")" >> $GITHUB_OUTPUT
+            # Extract and clean name (remove @scope/ prefix if present)
+            RAW_NAME=$(node -p "require('./package.json').name || ''")
+            CLEAN_NAME=$(echo "$RAW_NAME" | sed 's|^@[^/]*/||')
+            if [ -z "$CLEAN_NAME" ]; then
+              CLEAN_NAME="${{ github.event.repository.name }}"
+            fi
+            echo "name=$CLEAN_NAME" >> $GITHUB_OUTPUT
+            echo "version=$(node -p "require('./package.json').version || ''")" >> $GITHUB_OUTPUT
             echo "description=$(node -p "require('./package.json').description || ''")" >> $GITHUB_OUTPUT
           else
             echo "name=${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
-            echo "version=0.0.0" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
             echo "description=" >> $GITHUB_OUTPUT
           fi
 
@@ -101,15 +158,43 @@ jobs:
         run: |
           # Use input if provided, otherwise fallback to package.json
           if [ -n "${{ inputs.name }}" ]; then
-            echo "name=${{ inputs.name }}" >> $GITHUB_OUTPUT
+            NAME="${{ inputs.name }}"
           else
-            echo "name=${{ steps.package.outputs.name }}" >> $GITHUB_OUTPUT
+            NAME="${{ steps.package.outputs.name }}"
+          fi
+          # Sanitize name for Docker tags (lowercase, replace invalid chars)
+          NAME=$(echo "$NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          
+          # Resolve version
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ steps.package.outputs.version }}"
           fi
           
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          # Normalize version: remove 'v' prefix if present
+          VERSION=$(echo "$VERSION" | sed 's/^v//')
+          
+          # Validate semver format (basic validation)
+          # Accepts: 1.0.0, 1.0.0-alpha, 1.0.0-alpha.1, 1.0.0-rc.1+build
+          if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+)?$'; then
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "version_valid=true" >> $GITHUB_OUTPUT
+            
+            # Check if it's a prerelease (contains hyphen after version numbers)
+            if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-'; then
+              echo "is_prerelease=true" >> $GITHUB_OUTPUT
+              echo "📦 Detected prerelease version: $VERSION"
+            else
+              echo "is_prerelease=false" >> $GITHUB_OUTPUT
+              echo "📦 Detected stable version: $VERSION"
+            fi
           else
-            echo "version=${{ steps.package.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "⚠️ Invalid or missing version format: '$VERSION' - version tag will be skipped"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "version_valid=false" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
           
           echo "description=${{ steps.package.outputs.description }}" >> $GITHUB_OUTPUT
@@ -125,6 +210,11 @@ jobs:
             echo "full=${{ env.REGISTRY }}/${{ github.repository }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Get current timestamp
+        id: time
+        run: |
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -135,10 +225,23 @@ jobs:
 
       - name: Check if version tag already exists
         id: check-version
-        if: github.event_name != 'pull_request'
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
+          VERSION_VALID="${{ steps.resolve.outputs.version_valid }}"
           IMAGE="${{ steps.image-name.outputs.full }}"
+          
+          # Skip check for PRs or invalid versions
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ℹ️ Pull request - skipping version check"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          if [ "$VERSION_VALID" != "true" ]; then
+            echo "ℹ️ Invalid version - skipping version check"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           echo "Checking if $IMAGE:$VERSION exists..."
           
@@ -163,29 +266,135 @@ jobs:
         run: |
           IMAGE="${{ steps.image-name.outputs.full }}"
           VERSION="${{ steps.resolve.outputs.version }}"
+          VERSION_VALID="${{ steps.resolve.outputs.version_valid }}"
           VERSION_EXISTS="${{ steps.check-version.outputs.exists }}"
+          IS_PRERELEASE="${{ steps.resolve.outputs.is_prerelease }}"
           SHA="${{ github.sha }}"
           BRANCH="${{ github.ref_name }}"
+          LATEST_TAG="${{ inputs.latest_tag }}"
+          
+          # Sanitize branch name for Docker tag (replace / and other invalid chars)
+          BRANCH_TAG=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
           
           # Start with mutable tags (always pushed)
-          TAGS="$IMAGE:$BRANCH"
+          TAGS="$IMAGE:$BRANCH_TAG"
           TAGS="$TAGS,$IMAGE:sha-${SHA:0:7}"
           
-          # Add 'latest' only for default branch
+          # Add 'latest' (or custom tag) only for default branch AND non-prerelease versions
           if [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
-            TAGS="$TAGS,$IMAGE:latest"
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              echo "⚠️ Prerelease version detected - '$LATEST_TAG' tag will NOT be updated"
+            else
+              TAGS="$TAGS,$IMAGE:$LATEST_TAG"
+              echo "✅ Adding '$LATEST_TAG' tag (default branch, stable version)"
+            fi
           fi
           
-          # Add version tag ONLY if it doesn't exist (immutable)
-          if [ "$VERSION_EXISTS" != "true" ] && [ "$VERSION" != "0.0.0" ]; then
+          # Add version tag ONLY if:
+          # - version is valid semver
+          # - version doesn't already exist (immutable)
+          if [ "$VERSION_VALID" = "true" ] && [ "$VERSION_EXISTS" != "true" ]; then
             TAGS="$TAGS,$IMAGE:$VERSION"
             echo "📦 Version $VERSION will be tagged"
+            
+            # For stable versions, also add major and major.minor tags
+            if [ "$IS_PRERELEASE" != "true" ]; then
+              MAJOR=$(echo "$VERSION" | cut -d. -f1)
+              MINOR=$(echo "$VERSION" | cut -d. -f1-2)
+              if [ "$MAJOR" != "0" ]; then
+                TAGS="$TAGS,$IMAGE:$MAJOR"
+                echo "📦 Adding major version tag: $MAJOR"
+              fi
+              TAGS="$TAGS,$IMAGE:$MINOR"
+              echo "📦 Adding minor version tag: $MINOR"
+            fi
           else
-            echo "⏭️ Version $VERSION skipped (already exists or invalid)"
+            if [ "$VERSION_VALID" != "true" ]; then
+              echo "⏭️ Version '$VERSION' skipped (invalid format)"
+            elif [ "$VERSION_EXISTS" = "true" ]; then
+              echo "⏭️ Version $VERSION skipped (already exists - immutable)"
+            fi
           fi
           
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
-          echo "Tags to push: $TAGS"
+          echo ""
+          echo "🏷️ Tags to push:"
+          echo "$TAGS" | tr ',' '\n' | sed 's/^/  - /'
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          # Build the arguments list
+          ARGS=""
+          
+          if [ "${{ inputs.use_legacy_build_args }}" = "true" ]; then
+            # Legacy build args for backwards compatibility with old Dockerfiles
+            ARGS="CI_PUTS_HERE_LAST_GIT_COMMIT=${{ github.sha }}"
+            ARGS="$ARGS
+          CI_PUTS_HERE_DEPLOY_DATE=${{ steps.time.outputs.timestamp }}"
+          else
+            # Modern build args
+            ARGS="BUILD_DATE=${{ steps.time.outputs.timestamp }}"
+            ARGS="$ARGS
+          VCS_REF=${{ github.sha }}"
+          fi
+          
+          # Common args
+          ARGS="$ARGS
+          VERSION=${{ steps.resolve.outputs.version }}"
+          
+          # Git credentials if provided
+          if [ -n "${{ secrets.GIT_USERNAME }}" ]; then
+            ARGS="$ARGS
+          GIT_USERNAME=${{ secrets.GIT_USERNAME }}"
+          fi
+          if [ -n "${{ secrets.GIT_TOKEN }}" ]; then
+            ARGS="$ARGS
+          GIT_TOKEN=${{ secrets.GIT_TOKEN }}"
+          fi
+          
+          # Additional build args from input
+          if [ -n "${{ inputs.additional_build_args }}" ]; then
+            ARGS="$ARGS
+          ${{ inputs.additional_build_args }}"
+          fi
+          
+          # Use heredoc to preserve multiline
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "args<<$EOF" >> $GITHUB_OUTPUT
+          echo "$ARGS" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+      - name: Prepare build secrets
+        id: build-secrets
+        run: |
+          SECRETS=""
+          
+          if [ -n "${{ secrets.NPM_HOSTNAME }}" ]; then
+            SECRETS="npm_hostname=${{ secrets.NPM_HOSTNAME }}"
+          fi
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            if [ -n "$SECRETS" ]; then
+              SECRETS="$SECRETS
+          npm_token=${{ secrets.NPM_TOKEN }}"
+            else
+              SECRETS="npm_token=${{ secrets.NPM_TOKEN }}"
+            fi
+          fi
+          if [ -n "${{ secrets.NPM_SCOPE }}" ]; then
+            if [ -n "$SECRETS" ]; then
+              SECRETS="$SECRETS
+          npm_scope=${{ secrets.NPM_SCOPE }}"
+            else
+              SECRETS="npm_scope=${{ secrets.NPM_SCOPE }}"
+            fi
+          fi
+          
+          # Use heredoc to preserve multiline
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "secrets<<$EOF" >> $GITHUB_OUTPUT
+          echo "$SECRETS" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for labels
         id: meta
@@ -212,29 +421,59 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
-            VCS_REF=${{ github.sha }}
-            VERSION=${{ steps.resolve.outputs.version }}
-            ${{ inputs.additional_build_args }}
+          build-args: ${{ steps.build-args.outputs.args }}
+          secrets: ${{ steps.build-secrets.outputs.secrets }}
+
+      - name: Deploy Webhook
+        if: ${{ github.event_name != 'pull_request' && success() && env.UPDATE_WEBHOOK }}
+        uses: muinmomin/webhook-action@v1.0.0
+        with:
+          url: ${{ env.UPDATE_WEBHOOK }}
+
+      - name: Healthcheck (HTTP)
+        if: ${{ github.event_name != 'pull_request' && success() && env.HEALTHCHECK_URI }}
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ github.sha }}", "retry": 3 }'
+
+      - name: Healthcheck (MQ Agent)
+        if: ${{ github.event_name != 'pull_request' && success() && env.HEALTHCHECK_AGENT_NAME }}
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://node-red.internals.goresponsa.com/checkUrl'
+          method: 'POST'
+          data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ github.sha }}", "retry": 3 }'
 
       - name: Create summary
         if: github.event_name != 'pull_request'
         run: |
           echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Package:** ${{ steps.resolve.outputs.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "🔖 **Version:** ${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
-            echo "⚠️ **Note:** Version tag already existed (immutable) - only latest/branch tags updated" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Package | \`${{ steps.resolve.outputs.name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔖 Version | \`${{ steps.resolve.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Valid Semver | ${{ steps.resolve.outputs.version_valid }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.resolve.outputs.is_prerelease }}" = "true" ]; then
+            echo "| 🧪 Prerelease | Yes (latest tag NOT updated) |" >> $GITHUB_STEP_SUMMARY
           fi
+          if [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
+            echo "| ⚠️ Version Exists | Yes (immutable, skipped) |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "| 🔗 Digest | \`${{ steps.build-push.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🏷️ Tags pushed" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Pull Commands" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ steps.image-name.outputs.full }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "# Latest stable" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ steps.image-name.outputs.full }}:${{ inputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Specific version" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ steps.image-name.outputs.full }}:${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
