@@ -1,0 +1,51 @@
+name: Sync OpenSpec archive to Confluence
+description: >
+  Creates or updates Confluence pages from archived OpenSpec changes.
+  Builds one child page per archived change plus a summary index page for the repo,
+  all nested under a shared parent page.
+
+inputs:
+  repo_name:
+    description: 'GitHub repository name (e.g. comparatore-bollette)'
+    required: true
+  changed_dirs:
+    description: 'Space-separated list of archived change names to sync'
+    required: true
+  confluence_api_token:
+    description: 'Atlassian API token for authentication'
+    required: true
+  confluence_base_url:
+    description: 'Confluence base URL including /wiki'
+    required: false
+    default: 'https://gruppoeuris.atlassian.net/wiki'
+  confluence_email:
+    description: 'Atlassian account email for authentication'
+    required: false
+    default: 'davide.finelli@euris.it'
+  confluence_space_key:
+    description: 'Confluence space key'
+    required: false
+    default: 'RES'
+  confluence_parent_page_id:
+    description: 'Numeric ID of the root OpenSpec Confluence page'
+    required: false
+    default: '731578494'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Sync to Confluence
+      shell: bash
+      run: node "${{ github.action_path }}/sync.mjs"
+      env:
+        CONFLUENCE_BASE_URL: ${{ inputs.confluence_base_url }}
+        CONFLUENCE_EMAIL: ${{ inputs.confluence_email }}
+        CONFLUENCE_API_TOKEN: ${{ inputs.confluence_api_token }}
+        CONFLUENCE_SPACE_KEY: ${{ inputs.confluence_space_key }}
+        CONFLUENCE_PARENT_PAGE_ID: ${{ inputs.confluence_parent_page_id }}
+        REPO_NAME: ${{ inputs.repo_name }}
+        CHANGED_DIRS: ${{ inputs.changed_dirs }}
