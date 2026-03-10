@@ -23,7 +23,6 @@
  *   CHANGED_DIRS               space-separated capability names to sync
  */
 
-import { execSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -165,16 +164,124 @@ function extractDescription(specMd) {
 }
 
 /**
- * Converts a spec.md to Confluence storage HTML via pandoc.
- * pandoc is pre-installed on ubuntu-latest GitHub Actions runners.
+ * Converts a spec.md to Confluence storage HTML.
+ * Pure Node.js — no external dependencies.
  */
 function specToStorageHtml(specMd, capabilityName) {
   const decorated = `> **Capability:** \`${capabilityName}\`  \n> **Repo:** \`${REPO_NAME}\`  \n> Synced from OpenSpec.\n\n---\n\n${specMd}`;
-  return execSync('pandoc -f markdown -t html5 --no-highlight', {
-    input: decorated,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'inherit'],
-  });
+  return markdownToHtml(decorated);
+}
+
+/**
+ * Minimal markdown → HTML converter covering the subset used in OpenSpec specs:
+ * headings, bold, inline code, fenced code blocks, blockquotes, bullet/task lists,
+ * horizontal rules, and paragraphs.
+ */
+function markdownToHtml(md) {
+  const lines = md.split('\n');
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Fenced code block
+    if (line.startsWith('```')) {
+      const lang = line.slice(3).trim();
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      const code = escapeXml(codeLines.join('\n'));
+      out.push(lang
+        ? `<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">${escapeXml(lang)}</ac:parameter><ac:plain-text-body><![CDATA[${codeLines.join('\n')}]]></ac:plain-text-body></ac:structured-macro>`
+        : `<pre><code>${code}</code></pre>`);
+      i++;
+      continue;
+    }
+
+    // Headings
+    const hMatch = line.match(/^(#{1,6})\s+(.*)/);
+    if (hMatch) {
+      const level = hMatch[1].length;
+      out.push(`<h${level}>${inlineFormat(hMatch[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      out.push('<hr />');
+      i++;
+      continue;
+    }
+
+    // Blockquote — collect consecutive > lines
+    if (line.startsWith('>')) {
+      const bqLines = [];
+      while (i < lines.length && lines[i].startsWith('>')) {
+        bqLines.push(lines[i].replace(/^>\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote>${markdownToHtml(bqLines.join('\n'))}</blockquote>`);
+      continue;
+    }
+
+    // Bullet / task list — collect consecutive list items
+    if (/^- /.test(line)) {
+      const listItems = [];
+      while (i < lines.length && /^- /.test(lines[i])) {
+        const content = lines[i].slice(2);
+        if (content.startsWith('[x] ') || content.startsWith('[X] ')) {
+          listItems.push(`<li><s>${inlineFormat(content.slice(4))}</s></li>`);
+        } else if (content.startsWith('[ ] ')) {
+          listItems.push(`<li>${inlineFormat(content.slice(4))}</li>`);
+        } else {
+          listItems.push(`<li>${inlineFormat(content)}</li>`);
+        }
+        i++;
+      }
+      out.push(`<ul>${listItems.join('')}</ul>`);
+      continue;
+    }
+
+    // Blank line — paragraph separator (skip)
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+
+    // Paragraph — collect consecutive non-special lines
+    const paraLines = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !lines[i].startsWith('#') &&
+      !lines[i].startsWith('>') &&
+      !lines[i].startsWith('- ') &&
+      !lines[i].startsWith('```') &&
+      !/^---+$/.test(lines[i].trim())
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length > 0) {
+      out.push(`<p>${inlineFormat(paraLines.join(' '))}</p>`);
+    }
+  }
+
+  return out.join('\n');
+}
+
+/** Applies inline formatting: bold, inline code, links. */
+function inlineFormat(text) {
+  return text
+    .replaceAll(/`([^`]+)`/g, (_, c) => `<code>${escapeXml(c)}</code>`)
+    .replaceAll(/\*\*(.+?)\*\*/g, (_, c) => `<strong>${c}</strong>`)
+    .replaceAll(/\*(.+?)\*/g, (_, c) => `<em>${c}</em>`)
+    .replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => `<a href="${escapeXml(href)}">${escapeXml(label)}</a>`);
 }
 
 /**
