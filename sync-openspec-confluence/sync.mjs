@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
- * Syncs archived OpenSpec changes to Confluence.
+ * Syncs OpenSpec capability specs to Confluence.
  *
  * Page hierarchy:
  *   CONFLUENCE_PARENT_PAGE_ID
- *     └── <repo-name>               ← summary page: table of all archived changes
- *           └── <change-name>       ← one page per archived change
+ *     └── <repo-name>               ← summary page: table of all capability specs
+ *           └── <capability-name>   ← one page per openspec/specs/<name>/spec.md
  *
- * For each change in CHANGED_DIRS the individual page is created/updated.
- * After every run the repo summary page is fully rebuilt from all archived changes.
+ * For each capability name in CHANGED_DIRS (space-separated env var), reads:
+ *   openspec/specs/<name>/spec.md
+ *
+ * After syncing individual pages, the repo summary page is fully rebuilt
+ * from all capability specs currently in openspec/specs/.
  *
  * Required env vars:
  *   CONFLUENCE_BASE_URL        https://gruppoeuris.atlassian.net/wiki  (hardcoded in workflow)
@@ -17,7 +20,7 @@
  *   CONFLUENCE_SPACE_KEY       RES  (hardcoded in workflow)
  *   CONFLUENCE_PARENT_PAGE_ID  731578494  (hardcoded in workflow)
  *   REPO_NAME                  GitHub repository name (e.g. comparatore-bollette)
- *   CHANGED_DIRS               space-separated change names to sync
+ *   CHANGED_DIRS               space-separated capability names to sync
  */
 
 import { execSync } from 'node:child_process';
@@ -43,11 +46,12 @@ for (const key of ['CONFLUENCE_BASE_URL', 'CONFLUENCE_EMAIL', 'CONFLUENCE_API_TO
   }
 }
 
-const ARCHIVE_DIR = 'openspec/changes/archive';
-const changeNames = CHANGED_DIRS.trim().split(/\s+/).filter(Boolean);
+const SPECS_DIR = 'openspec/specs';
+const capabilityNames = CHANGED_DIRS.trim().split(/\s+/).filter(Boolean);
 
 // ─── Confluence helpers ───────────────────────────────────────────────────────
 
+// Confluence REST API uses HTTP Basic auth: base64(email:api_token)
 const basicAuth = Buffer.from(`${CONFLUENCE_EMAIL}:${CONFLUENCE_API_TOKEN}`).toString('base64');
 
 const confluenceHeaders = {
@@ -116,21 +120,30 @@ async function createOrUpdate(title, parentId, storageHtml) {
   return { page: existing, created: false };
 }
 
-// ─── Markdown helpers ─────────────────────────────────────────────────────────
+async function ensureRepoPage() {
+  const existing = await findPage(REPO_NAME);
+  if (existing) {
+    console.log(`  Repo page found: "${REPO_NAME}" (id=${existing.id})`);
+    return existing.id;
+  }
 
-function readIfExists(filePath) {
-  return existsSync(filePath) ? readFileSync(filePath, 'utf8') : null;
+  console.log(`  Repo page not found — creating "${REPO_NAME}" under parent ${CONFLUENCE_PARENT_PAGE_ID}`);
+  const placeholder = `<p>OpenSpec capability specs for <strong>${REPO_NAME}</strong>.</p>`;
+  const page = await createPage(REPO_NAME, CONFLUENCE_PARENT_PAGE_ID, placeholder);
+  console.log(`  Created repo page: ${CONFLUENCE_BASE_URL}${page._links.webui}`);
+  return page.id;
 }
 
-/**
- * Extracts a short description from proposal.md:
- * the first non-empty paragraph under the first heading, or the first paragraph.
- */
-function extractDescription(proposalMd) {
-  if (!proposalMd) return '—';
+// ─── Spec helpers ─────────────────────────────────────────────────────────────
 
-  // Skip heading lines, grab first substantial paragraph
-  const lines = proposalMd.split('\n');
+/**
+ * Extracts a short description from a spec.md:
+ * the first non-heading, non-empty paragraph.
+ */
+function extractDescription(specMd) {
+  if (!specMd) return '—';
+
+  const lines = specMd.split('\n');
   const paragraphLines = [];
   let inParagraph = false;
 
@@ -152,48 +165,13 @@ function extractDescription(proposalMd) {
 }
 
 /**
- * Builds a combined markdown document from all files in a change directory,
- * ordered: proposal → design → specs (alphabetical) → tasks.
- */
-function buildChangeMarkdown(changeDir, changeName) {
-  const sections = [];
-
-  const proposal = readIfExists(join(changeDir, 'proposal.md'));
-  if (proposal) sections.push(`# Proposal\n\n${proposal}`);
-
-  const design = readIfExists(join(changeDir, 'design.md'));
-  if (design) sections.push(`# Design\n\n${design}`);
-
-  const specsDir = join(changeDir, 'specs');
-  if (existsSync(specsDir)) {
-    const specDirs = readdirSync(specsDir)
-      .filter(name => statSync(join(specsDir, name)).isDirectory())
-      .sort();
-
-    for (const specName of specDirs) {
-      const spec = readIfExists(join(specsDir, specName, 'spec.md'));
-      if (spec) sections.push(`# Spec: ${specName}\n\n${spec}`);
-    }
-  }
-
-  const tasks = readIfExists(join(changeDir, 'tasks.md'));
-  if (tasks) sections.push(`# Tasks\n\n${tasks}`);
-
-  if (sections.length === 0) {
-    throw new Error(`No markdown content found in ${changeDir}`);
-  }
-
-  const header = `> **Change:** \`${changeName}\`  \n> **Repo:** \`${REPO_NAME}\`  \n> Synced from OpenSpec archive.\n\n---\n\n`;
-  return header + sections.join('\n\n---\n\n');
-}
-
-/**
- * Converts markdown to Confluence storage HTML via pandoc.
+ * Converts a spec.md to Confluence storage HTML via pandoc.
  * pandoc is pre-installed on ubuntu-latest GitHub Actions runners.
  */
-function markdownToStorageHtml(markdown) {
+function specToStorageHtml(specMd, capabilityName) {
+  const decorated = `> **Capability:** \`${capabilityName}\`  \n> **Repo:** \`${REPO_NAME}\`  \n> Synced from OpenSpec.\n\n---\n\n${specMd}`;
   return execSync('pandoc -f markdown -t html5 --no-highlight', {
-    input: markdown,
+    input: decorated,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'inherit'],
   });
@@ -201,25 +179,21 @@ function markdownToStorageHtml(markdown) {
 
 /**
  * Builds the HTML for the repo summary page.
- * Lists every archived change with description and a link to its child page.
- * Uses Confluence's ac:link macro so links resolve by title, not hardcoded URL.
+ * Lists every capability with a description and a link to its child page.
  */
-function buildRepoSummaryHtml(allChangeDirs) {
-  const rows = allChangeDirs.map(({ name, dir }) => {
-    const proposal = readIfExists(join(dir, 'proposal.md'));
-    const description = extractDescription(proposal);
+function buildRepoSummaryHtml(allCapabilities) {
+  const rows = allCapabilities.map(({ name, specMd }) => {
+    const description = extractDescription(specMd);
     const link = `<ac:link><ri:page ri:content-title="${escapeXml(name)}" ri:space-key="${CONFLUENCE_SPACE_KEY}" /></ac:link>`;
     return `<tr><td>${link}</td><td>${escapeXml(description)}</td></tr>`;
   });
 
   return [
-    `<p>All archived OpenSpec changes for <strong>${escapeXml(REPO_NAME)}</strong>.</p>`,
-    '<table>',
-    '<tbody>',
-    '<tr><th>Change</th><th>Description</th></tr>',
+    `<p>OpenSpec capability specs for <strong>${escapeXml(REPO_NAME)}</strong>.</p>`,
+    '<table><tbody>',
+    '<tr><th>Capability</th><th>Description</th></tr>',
     ...rows,
-    '</tbody>',
-    '</table>',
+    '</tbody></table>',
   ].join('\n');
 }
 
@@ -235,9 +209,9 @@ function escapeXml(str) {
 
 let exitCode = 0;
 
-console.log(`\nRepo: ${REPO_NAME} | Changes to sync: ${changeNames.join(', ')}`);
+console.log(`\nRepo: ${REPO_NAME} | Capabilities to sync: ${capabilityNames.join(', ')}`);
 
-// 1. Ensure the repo summary page exists and get its ID
+// 1. Ensure the repo summary page exists
 let repoPage = await findPage(REPO_NAME);
 if (!repoPage) {
   console.log(`\nCreating repo summary page "${REPO_NAME}"…`);
@@ -246,49 +220,54 @@ if (!repoPage) {
 const repoPageId = repoPage.id;
 console.log(`Repo page id=${repoPageId}`);
 
-// 2. Sync individual change pages
-for (const changeName of changeNames) {
-  const changeDir = join(ARCHIVE_DIR, changeName);
-  console.log(`\n── Syncing "${changeName}" ──────────────────────────`);
+// 2. Sync individual capability pages
+for (const capabilityName of capabilityNames) {
+  const specFile = join(SPECS_DIR, capabilityName, 'spec.md');
+  console.log(`\n── Syncing "${capabilityName}" ──────────────────────────`);
 
-  if (!existsSync(changeDir)) {
-    console.warn(`  Directory not found: ${changeDir} — skipping`);
+  if (!existsSync(specFile)) {
+    console.warn(`  spec.md not found: ${specFile} — skipping`);
     continue;
   }
 
   try {
-    const storageHtml = markdownToStorageHtml(buildChangeMarkdown(changeDir, changeName));
-    const { page, created } = await createOrUpdate(changeName, repoPageId, storageHtml);
+    const specMd = readFileSync(specFile, 'utf8');
+    const storageHtml = specToStorageHtml(specMd, capabilityName);
+    const { page, created } = await createOrUpdate(capabilityName, repoPageId, storageHtml);
     const link = `${CONFLUENCE_BASE_URL}${page._links?.webui ?? ''}`;
     console.log(`  ${created ? 'Created' : 'Updated'}: ${link}`);
   } catch (err) {
-    console.error(`  ERROR syncing "${changeName}": ${err.message}`);
+    console.error(`  ERROR syncing "${capabilityName}": ${err.message}`);
     exitCode = 1;
   }
 }
 
-// 3. Rebuild the repo summary page from ALL archived changes (not just this run)
+// 3. Rebuild the repo summary page from ALL capability specs
 console.log(`\n── Rebuilding repo summary page ──────────────────────────`);
 
-const allChangeDirs = existsSync(ARCHIVE_DIR)
-  ? readdirSync(ARCHIVE_DIR)
-      .filter(name => statSync(join(ARCHIVE_DIR, name)).isDirectory())
+const allCapabilities = existsSync(SPECS_DIR)
+  ? readdirSync(SPECS_DIR)
+      .filter(name => statSync(join(SPECS_DIR, name)).isDirectory())
       .sort()
-      .map(name => ({ name, dir: join(ARCHIVE_DIR, name) }))
+      .map(name => {
+        const specFile = join(SPECS_DIR, name, 'spec.md');
+        return { name, specMd: existsSync(specFile) ? readFileSync(specFile, 'utf8') : null };
+      })
+      .filter(({ specMd }) => specMd !== null)
   : [];
 
-if (allChangeDirs.length > 0) {
+if (allCapabilities.length > 0) {
   try {
-    const summaryHtml = buildRepoSummaryHtml(allChangeDirs);
+    const summaryHtml = buildRepoSummaryHtml(allCapabilities);
     const freshRepoPage = await findPage(REPO_NAME);
     await updatePage(repoPageId, REPO_NAME, summaryHtml, freshRepoPage.version.number);
-    console.log(`  Summary updated with ${allChangeDirs.length} change(s).`);
+    console.log(`  Summary updated with ${allCapabilities.length} capability spec(s).`);
   } catch (err) {
     console.error(`  ERROR rebuilding summary: ${err.message}`);
     exitCode = 1;
   }
 } else {
-  console.log('  No archived changes found, summary left as-is.');
+  console.log('  No capability specs found, summary left as-is.');
 }
 
 process.exit(exitCode);
