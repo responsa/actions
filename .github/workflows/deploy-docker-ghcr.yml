@@ -216,7 +216,6 @@ jobs:
           echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -270,7 +269,11 @@ jobs:
           VERSION_EXISTS="${{ steps.check-version.outputs.exists }}"
           IS_PRERELEASE="${{ steps.resolve.outputs.is_prerelease }}"
           SHA="${{ github.sha }}"
-          BRANCH="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="${{ github.head_ref }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
           LATEST_TAG="${{ inputs.latest_tag }}"
           
           # Sanitize branch name for Docker tag (replace / and other invalid chars)
@@ -416,7 +419,7 @@ jobs:
           context: ${{ inputs.folder }}
           file: ${{ inputs.folder }}/${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
