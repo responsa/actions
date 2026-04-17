@@ -3,7 +3,7 @@ name: Build and deploy Docker image to GHCR
 # Reusable workflow per build e push Docker su GitHub Container Registry (ghcr.io)
 # - Accetta name e version come input, oppure li estrae da package.json
 # - Le versioni sono IMMUTABILI (non sovrascrive se già esistono)
-# - Solo 'latest' e i tag branch vengono sovrascritti
+# - Solo 'latest' (anche su push di git tag) e i tag branch vengono sovrascritti
 # - Supporta secrets NPM e Git per build con dipendenze private
 # - Compatibile con i build args del vecchio workflow deploy-docker-multi.yml
 
@@ -283,13 +283,25 @@ jobs:
           TAGS="$IMAGE:$BRANCH_TAG"
           TAGS="$TAGS,$IMAGE:sha-${SHA:0:7}"
           
-          # Add 'latest' (or custom tag) only for default branch AND non-prerelease versions
+          # Add 'latest' (or custom tag) on default branch OR git tag push, when version is stable
+          ON_DEFAULT_BRANCH=false
           if [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            ON_DEFAULT_BRANCH=true
+          fi
+          ON_GIT_TAG=false
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            ON_GIT_TAG=true
+          fi
+          if [ "$ON_DEFAULT_BRANCH" = "true" ] || [ "$ON_GIT_TAG" = "true" ]; then
             if [ "$IS_PRERELEASE" = "true" ]; then
               echo "⚠️ Prerelease version detected - '$LATEST_TAG' tag will NOT be updated"
             else
               TAGS="$TAGS,$IMAGE:$LATEST_TAG"
-              echo "✅ Adding '$LATEST_TAG' tag (default branch, stable version)"
+              if [ "$ON_DEFAULT_BRANCH" = "true" ]; then
+                echo "✅ Adding '$LATEST_TAG' tag (default branch, stable version)"
+              else
+                echo "✅ Adding '$LATEST_TAG' tag (git tag trigger, stable version)"
+              fi
             fi
           fi
           
