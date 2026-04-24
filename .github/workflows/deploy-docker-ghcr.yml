@@ -81,6 +81,9 @@ on:
       HEALTHCHECK_AGENT_NAME:
         description: 'Agent name for MQ-based healthcheck'
         required: false
+      VITE_CHAT_TOKEN:
+        description: 'Vite build-time token injected as VITE_CHAT_TOKEN build-arg'
+        required: false
 
     outputs:
       version:
@@ -373,7 +376,13 @@ jobs:
             ARGS="$ARGS
           ${{ inputs.additional_build_args }}"
           fi
-          
+
+          # Vite chat token secret injected as build-arg when provided
+          if [ -n "${{ secrets.VITE_CHAT_TOKEN }}" ]; then
+            ARGS="$ARGS
+          VITE_CHAT_TOKEN=${{ secrets.VITE_CHAT_TOKEN }}"
+          fi
+
           # Use heredoc to preserve multiline
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "args<<$EOF" >> $GITHUB_OUTPUT
