@@ -277,11 +277,26 @@ function markdownToHtml(md) {
 
 /** Applies inline formatting: bold, inline code, links. */
 function inlineFormat(text) {
-  return text
-    .replaceAll(/`([^`]+)`/g, (_, c) => `<code>${escapeXml(c)}</code>`)
+  const codeSlots = [];
+  let work = text.replaceAll(/`([^`]+)`/g, (_, code) => {
+    const idx = codeSlots.length;
+    codeSlots.push(`<code>${escapeXml(code)}</code>`);
+    return `\x00C${idx}\x00`;
+  });
+
+  // Escape raw <>& in prose so comparisons like "a < b" don't break storage HTML / Fabric.
+  work = escapeXml(work);
+
+  work = work
     .replaceAll(/\*\*(.+?)\*\*/g, (_, c) => `<strong>${c}</strong>`)
     .replaceAll(/\*(.+?)\*/g, (_, c) => `<em>${c}</em>`)
-    .replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => `<a href="${escapeXml(href)}">${escapeXml(label)}</a>`);
+    .replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => `<a href="${href}">${label}</a>`);
+
+  for (let idx = 0; idx < codeSlots.length; idx++) {
+    work = work.replace(`\x00C${idx}\x00`, codeSlots[idx]);
+  }
+
+  return work;
 }
 
 /**
