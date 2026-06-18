@@ -282,6 +282,20 @@ jobs:
           # Sanitize branch name for Docker tag (replace / and other invalid chars)
           BRANCH_TAG=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
           
+          # Pull requests must ONLY publish the mutable branch tag.
+          # A PR is built from the merge ref, which inherits the base branch's
+          # package.json version. Pushing the version/minor/major/latest tags from
+          # a PR would therefore overwrite an immutable release tag with un-merged
+          # code, so they are intentionally skipped here.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAGS="$IMAGE:$BRANCH_TAG"
+            echo "tags=$TAGS" >> $GITHUB_OUTPUT
+            echo ""
+            echo "🏷️ Pull request build - only the branch tag will be pushed:"
+            echo "  - $IMAGE:$BRANCH_TAG"
+            exit 0
+          fi
+          
           # Start with mutable tags (always pushed)
           TAGS="$IMAGE:$BRANCH_TAG"
           TAGS="$TAGS,$IMAGE:sha-${SHA:0:7}"
