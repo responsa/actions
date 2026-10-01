@@ -139,6 +139,9 @@ jobs:
           echo "Repository URI: ${{ steps.create-repo.outputs.repo-uri }}"
           echo "Newly created: ${{ steps.create-repo.outputs.exists == 'false' }}"
           echo "::endgroup::"
+      # The npm token is passed only as a BuildKit secret (id npm_token), whatever the
+      # value of inputs.buildkit: never as a build-arg. With buildkit=false the
+      # non-secret NPM_HOSTNAME/NPM_SCOPE are also passed as build-args.
       - name: Build & Tag docker image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -150,9 +153,10 @@ jobs:
         run: >
           ${{ inputs.buildkit == true && 'DOCKER_BUILDKIT=1 ' || '' }}docker build
           -f ${{ inputs.dockerfile }}
-          ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="${{ secrets.RESPONSA_NPM_HOSTNAME }}"' || '--secret type=env,id=npm_hostname,env=NPM_HOSTNAME' }}
-          ${{ inputs.buildkit != true && '--build-arg NPM_TOKEN="${{ secrets.RESPONSA_NPM_TOKEN }}"' || '--secret type=env,id=npm_token,env=NPM_TOKEN' }}
-          ${{ inputs.buildkit != true && '--build-arg NPM_SCOPE="${{ secrets.RESPONSA_NPM_SCOPE }}"' || '--secret type=env,id=npm_scope,env=NPM_SCOPE' }}
+          --secret type=env,id=npm_hostname,env=NPM_HOSTNAME
+          --secret type=env,id=npm_token,env=NPM_TOKEN
+          --secret type=env,id=npm_scope,env=NPM_SCOPE
+          ${{ inputs.buildkit != true && '--build-arg NPM_HOSTNAME="$NPM_HOSTNAME" --build-arg NPM_SCOPE="$NPM_SCOPE"' || '' }}
           --build-arg CI_PUTS_HERE_LAST_GIT_COMMIT="${{ inputs.sha }}"
           --build-arg CI_PUTS_HERE_DEPLOY_DATE="${{ steps.time.outputs.time }}"
           --build-arg GIT_USERNAME="${{ secrets.GIT_USERNAME }}"
