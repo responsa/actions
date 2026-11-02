@@ -55,6 +55,11 @@ on:
         required: false
         type: boolean
         default: false
+      push:
+        description: 'Push the image to GHCR. false = build only, warms the buildx gha cache so a later push=true call in the same run is a cache hit'
+        required: false
+        type: boolean
+        default: true
 
     secrets:
       NPM_HOSTNAME:
@@ -454,7 +459,7 @@ jobs:
           context: ${{ inputs.folder }}
           file: ${{ inputs.folder }}/${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}
-          push: true
+          push: ${{ inputs.push }}
           tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -463,13 +468,13 @@ jobs:
           secrets: ${{ steps.build-secrets.outputs.secrets }}
 
       - name: Deploy Webhook
-        if: ${{ github.event_name != 'pull_request' && success() && env.UPDATE_WEBHOOK }}
+        if: ${{ inputs.push && github.event_name != 'pull_request' && success() && env.UPDATE_WEBHOOK }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ env.UPDATE_WEBHOOK }}
 
       - name: Healthcheck (HTTP)
-        if: ${{ github.event_name != 'pull_request' && success() && env.HEALTHCHECK_URI }}
+        if: ${{ inputs.push && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_URI }}
         uses: fjogeleit/http-request-action@v1
         with:
           url: 'https://node-red.internals.goresponsa.com/checkUrl'
@@ -477,7 +482,7 @@ jobs:
           data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ github.sha }}", "retry": 3 }'
 
       - name: Healthcheck (MQ Agent)
-        if: ${{ github.event_name != 'pull_request' && success() && env.HEALTHCHECK_AGENT_NAME }}
+        if: ${{ inputs.push && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_AGENT_NAME }}
         uses: fjogeleit/http-request-action@v1
         with:
           url: 'https://node-red.internals.goresponsa.com/checkUrl'
@@ -485,7 +490,7 @@ jobs:
           data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ github.sha }}", "retry": 3 }'
 
       - name: Create summary
-        if: github.event_name != 'pull_request'
+        if: inputs.push && github.event_name != 'pull_request'
         run: |
           echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
