@@ -65,6 +65,11 @@ on:
         required: false
         type: string
         default: 'direct'
+      skip_released_version:
+        description: 'Skip build and publish when the version tag already exists on GHCR. Only on the default branch (feature branches, PRs and git tags always build, so branch tags stay current). Set false for callers that need latest/sha- tags refreshed on every commit'
+        required: false
+        type: boolean
+        default: true
 
     secrets:
       NPM_HOSTNAME:
@@ -273,8 +278,8 @@ jobs:
       - name: Skip when the version is already released
         id: skip
         run: |
-          # prebuild/publish only: a released version tag is immutable, so building would only leave an orphan ci-<sha7> image
-          if [ "${{ inputs.push_mode }}" != "direct" ] && [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
+          # a released version tag is immutable, so building would only leave an orphan image; default branch only, so branch tags keep updating
+          if [ "${{ inputs.skip_released_version }}" = "true" ] && [ "${{ inputs.push_mode }}" != "direct" ] && [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ] && [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
             echo "skipped=true" >> $GITHUB_OUTPUT
             echo "::notice::Version ${{ steps.resolve.outputs.version }} already exists on GHCR: nothing built or published (push_mode=${{ inputs.push_mode }})"
           else
