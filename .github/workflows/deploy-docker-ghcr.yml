@@ -114,6 +114,9 @@ on:
       digest:
         description: 'Docker image digest'
         value: ${{ jobs.build-and-push.outputs.digest }}
+      skipped:
+        description: 'true when push_mode is prebuild or publish and the version tag already exists on GHCR: nothing was built or published'
+        value: ${{ jobs.build-and-push.outputs.skipped }}
 
 env:
   REGISTRY: ghcr.io
@@ -138,6 +141,7 @@ jobs:
       is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
       tags: ${{ steps.tags.outputs.tags }}
       digest: ${{ steps.build-push.outputs.digest || steps.publish.outputs.digest }}
+      skipped: ${{ steps.skip.outputs.skipped }}
 
     defaults:
       run:
@@ -266,15 +270,28 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Skip when the version is already released
+        id: skip
+        run: |
+          # prebuild/publish only: a released version tag is immutable, so building would only leave an orphan ci-<sha7> image
+          if [ "${{ inputs.push_mode }}" != "direct" ] && [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
+            echo "skipped=true" >> $GITHUB_OUTPUT
+            echo "::notice::Version ${{ steps.resolve.outputs.version }} already exists on GHCR: nothing built or published (push_mode=${{ inputs.push_mode }})"
+          else
+            echo "skipped=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up QEMU
-        if: inputs.push_mode != 'publish' && contains(inputs.platforms, 'arm')
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode != 'publish' && contains(inputs.platforms, 'arm')
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: steps.skip.outputs.skipped != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build dynamic tags
         id: tags
+        if: steps.skip.outputs.skipped != 'true'
         run: |
           IMAGE="${{ steps.image-name.outputs.full }}"
           VERSION="${{ steps.resolve.outputs.version }}"
@@ -369,7 +386,7 @@ jobs:
           echo "$TAGS" | tr ',' '\n' | sed 's/^/  - /'
 
       - name: Prepare build args
-        if: inputs.push_mode != 'publish'
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode != 'publish'
         id: build-args
         run: |
           # Build the arguments list
@@ -420,7 +437,7 @@ jobs:
           echo "$EOF" >> $GITHUB_OUTPUT
 
       - name: Prepare build secrets
-        if: inputs.push_mode != 'publish'
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode != 'publish'
         id: build-secrets
         run: |
           SECRETS=""
@@ -452,7 +469,7 @@ jobs:
           echo "$EOF" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for labels
-        if: inputs.push_mode != 'publish'
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode != 'publish'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -467,7 +484,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-push
-        if: inputs.push_mode != 'publish'
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode != 'publish'
         uses: docker/build-push-action@v5
         with:
           context: ${{ inputs.folder }}
@@ -483,7 +500,7 @@ jobs:
 
       - name: Publish tested image (copy ci tag to final tags)
         id: publish
-        if: inputs.push_mode == 'publish'
+        if: steps.skip.outputs.skipped != 'true' && inputs.push_mode == 'publish'
         run: |
           SRC="${{ steps.image-name.outputs.full }}:ci-${GITHUB_SHA:0:7}"
           ARGS=""
@@ -492,13 +509,13 @@ jobs:
           echo "digest=$(docker buildx imagetools inspect "$SRC" --format '{{json .Manifest}}' | jq -r .digest)" >> $GITHUB_OUTPUT
 
       - name: Deploy Webhook
-        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && github.event_name != 'pull_request' && success() && env.UPDATE_WEBHOOK }}
+        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && steps.skip.outputs.skipped != 'true' && github.event_name != 'pull_request' && success() && env.UPDATE_WEBHOOK }}
         uses: muinmomin/webhook-action@v1.0.0
         with:
           url: ${{ env.UPDATE_WEBHOOK }}
 
       - name: Healthcheck (HTTP)
-        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_URI }}
+        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && steps.skip.outputs.skipped != 'true' && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_URI }}
         uses: fjogeleit/http-request-action@v1
         with:
           url: 'https://node-red.internals.goresponsa.com/checkUrl'
@@ -506,15 +523,20 @@ jobs:
           data: '{ "url": "${{ env.HEALTHCHECK_URI }}", "text": "${{ github.sha }}", "retry": 3 }'
 
       - name: Healthcheck (MQ Agent)
-        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_AGENT_NAME }}
+        if: ${{ inputs.push && inputs.push_mode != 'prebuild' && steps.skip.outputs.skipped != 'true' && github.event_name != 'pull_request' && success() && env.HEALTHCHECK_AGENT_NAME }}
         uses: fjogeleit/http-request-action@v1
         with:
           url: 'https://node-red.internals.goresponsa.com/checkUrl'
           method: 'POST'
           data: '{ "agentName": "${{ env.HEALTHCHECK_AGENT_NAME }}", "text": "${{ github.sha }}", "retry": 3 }'
 
+      - name: Summary (skipped)
+        if: steps.skip.outputs.skipped == 'true'
+        run: |
+          echo "ℹ️ Version ${{ steps.resolve.outputs.version }} already exists on GHCR: no build, no publish (push_mode=${{ inputs.push_mode }})" >> $GITHUB_STEP_SUMMARY
+
       - name: Create summary
-        if: inputs.push && inputs.push_mode != 'prebuild' && github.event_name != 'pull_request'
+        if: inputs.push && inputs.push_mode != 'prebuild' && steps.skip.outputs.skipped != 'true' && github.event_name != 'pull_request'
         run: |
           echo "## 🐳 Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
