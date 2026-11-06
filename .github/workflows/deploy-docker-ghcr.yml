@@ -279,7 +279,7 @@ jobs:
         id: skip
         run: |
           # a released version tag is immutable, so building would only leave an orphan image; default branch only, so branch tags keep updating
-          if [ "${{ inputs.skip_released_version }}" = "true" ] && [ "${{ inputs.push_mode }}" != "direct" ] && [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ] && [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
+          if [ "${{ inputs.skip_released_version }}" = "true" ] && [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ] && [ "${{ steps.check-version.outputs.exists }}" = "true" ]; then
             echo "skipped=true" >> $GITHUB_OUTPUT
             echo "::notice::Version ${{ steps.resolve.outputs.version }} already exists on GHCR: nothing built or published (push_mode=${{ inputs.push_mode }})"
           else
